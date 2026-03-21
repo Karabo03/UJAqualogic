@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 <script>
 (function(){
-  emailjs.init("YOUR_PUBLIC_KEY");
+  emailjs.init("njE3wzHhlXzpcVbHf");
 })();
   
 </script>
@@ -536,7 +536,7 @@ function doRegister(){
   APP.pendingReg={name,surname,email,phone,pass};
   APP.emailOTP = genOTP();
 
-emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", {
+emailjs.send("service_36h95pb", "template_len1b5s", {
     to_email: APP.pendingReg.email,
     otp_code: APP.emailOTP
 }).then(function(response) {
