@@ -6,6 +6,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Aqua Logic | Smart Water Intelligence — Advanced</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<script>
+(function(){
+  emailjs.init("YOUR_PUBLIC_KEY");
+})();
+  
+</script>
+  
 <style>
 :root{
   --blue:#1565c0;--sky:#29b6f6;--teal:#00acc1;--glow:#00e5ff;
@@ -479,7 +488,7 @@ function verifyEmailHTML(){ return `
   <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
     <div style="font-size:1rem;font-weight:800">Verify Email</div>
     <div style="color:#3a6a7a">Code sent to <strong>${APP.pendingReg?.email||'—'}</strong></div>
-    <div style="background:rgba(0,172,193,0.06);padding:8px;border-radius:8px;font-family:var(--font-m)">Demo OTP: <strong>${APP.emailOTP}</strong></div>
+    <div style="background:rgba(0,172,193,0.06);padding:8px;border-radius:8px;font-family:var(--font-m)">Check your email for the OTP</div>
     <div id="otpEmail" style="display:flex;gap:8px;margin-top:8px">${Array(6).fill(0).map(()=>'<input maxlength="1" style="width:40px;padding:10px;text-align:center;border-radius:6px;border:1px solid #e6f6fb">').join('')}</div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="ctrl" onclick="verifyEmail()">Verify</button>
@@ -525,7 +534,16 @@ function doRegister(){
   if(pass.length<6){ showToast('⚠ Weak password','Password must be at least 6 characters'); return; }
   if(pass!==conf){ showToast('⚠ Passwords','Passwords do not match'); return; }
   APP.pendingReg={name,surname,email,phone,pass};
-  APP.emailOTP=genOTP();
+  APP.emailOTP = genOTP();
+
+emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", {
+    to_email: APP.pendingReg.email,
+    otp_code: APP.emailOTP
+}).then(function(response) {
+    showToast("📧 OTP Sent", "Check your email");
+}, function(error) {
+    showToast("❌ Error", "Email failed to send");
+});
   APP.authStep='verifyEmail';
   renderAuth();
   showToast('📧 OTP Sent', `A demo OTP was generated and shown in the UI`);
