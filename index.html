@@ -1,606 +1,554 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Aqua Logic · National Water Intelligence</title>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
-  <script>(function(){ emailjs.init("njE3wzHhlXzpcVbHf"); })();</script>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    :root {
-      --blue: #1565c0;
-      --sky: #29b6f6;
-      --teal: #00acc1;
-      --glow: #00e5ff;
-      --safe: #00c97a;
-      --warn: #f44336;
-      --amber: #ffb300;
-      --glass: rgba(255, 255, 255, 0.2);
-      --rim: rgba(255, 255, 255, 0.35);
-      --glass-dark: rgba(10, 40, 80, 0.5);
-      --text: #0d2137;
-      --text-inv: #ffffff;
-      --muted: #3a6080;
-      --r: 18px;
-      --font-h: 'Syne', sans-serif;
-      --font-m: 'DM Mono', monospace;
-      --font-b: 'Nunito', sans-serif;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      font-family: var(--font-b);
-      color: var(--text);
-      min-height: 100vh;
-      overflow-x: hidden;
-      background: linear-gradient(180deg, #e9faff 0%, #d6f0ff 12%, #f6fcff 100%);
-    }
-
-    /* animated water world */
-    .water-world {
-      position: fixed;
-      inset: 0;
-      z-index: 0;
-      overflow: hidden;
-      pointer-events: none;
-      background: linear-gradient(180deg, #b3e5fc 0%, #0277bd 80%);
-    }
-
-    .sun-bloom {
-      position: absolute;
-      top: -150px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 1000px;
-      height: 360px;
-      border-radius: 50%;
-      background: radial-gradient(ellipse at 50% 30%, rgba(255, 253, 200, 0.55), transparent 60%);
-      animation: sunPulse 9s ease-in-out infinite alternate;
-    }
-
-    @keyframes sunPulse {
-      0% { opacity: 0.85; transform: translateX(-50%) scale(1); }
-      100% { opacity: 1; transform: translateX(-50%) scale(1.05); }
-    }
-
-    .caustics {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      height: 65%;
-      background: radial-gradient(ellipse 140px 50px at 12% 80%, rgba(100, 230, 255, 0.12) 0%, transparent 70%),
-                  radial-gradient(ellipse 100px 40px at 55% 90%, rgba(80, 210, 255, 0.08) 0%, transparent 70%);
-    }
-
-    .bubbles-wrap {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-    }
-
-    .bbl {
-      position: absolute;
-      border-radius: 50%;
-      background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.75), rgba(180, 240, 255, 0.2));
-      border: 1px solid rgba(255, 255, 255, 0.4);
-      animation: bubbleRise linear infinite;
-    }
-
-    @keyframes bubbleRise {
-      0% { transform: translateY(0); }
-      100% { transform: translateY(-110vh); }
-    }
-
-    .waves-wrap {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      overflow: hidden;
-      line-height: 0;
-    }
-
-    .wave-svg {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 200%;
-      height: 120px;
-      animation: waveDrift 24s linear infinite;
-      opacity: 0.4;
-    }
-
-    @keyframes waveDrift {
-      from { transform: translateX(0); }
-      to { transform: translateX(-50%); }
-    }
-
-    .layer {
-      position: relative;
-      z-index: 2;
-      padding-bottom: 20px;
-    }
-
-    .glass-card {
-      background: rgba(255, 255, 255, 0.25);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.4);
-      border-radius: var(--r);
-    }
-
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 200;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 24px;
-      background: rgba(255, 255, 255, 0.3);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.5);
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-family: var(--font-h);
-      font-weight: 800;
-      font-size: 1.2rem;
-      color: #072b3a;
-    }
-
-    .brand-drop {
-      width: 38px;
-      height: 38px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, var(--teal), var(--sky));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.2rem;
-      color: white;
-      box-shadow: 0 8px 20px rgba(0, 150, 200, 0.2);
-    }
-
-    .hero {
-      min-height: 70vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 48px 20px 40px;
-      text-align: center;
-    }
-
-    .hero-title {
-      font-family: var(--font-h);
-      font-size: clamp(2rem, 5.5vw, 4rem);
-      font-weight: 800;
-      line-height: 1.1;
-      margin-bottom: 20px;
-      color: #072b3a;
-    }
-
-    .hero-sub {
-      max-width: 720px;
-      color: #1b4b60;
-      margin-bottom: 24px;
-      font-size: 1.05rem;
-    }
-
-    .ctrl {
-      padding: 8px 18px;
-      border-radius: 40px;
-      background: rgba(255, 255, 255, 0.95);
-      border: 1px solid #cbe7f5;
-      cursor: pointer;
-      font-weight: 700;
-      color: #025e7b;
-      transition: all 0.2s ease;
-      font-family: var(--font-b);
-    }
-
-    .ctrl:hover {
-      background: white;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-      transform: translateY(-1px);
-    }
-
-    .hero-stats {
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-      justify-content: center;
-      margin-top: 32px;
-    }
-
-    .stat-card {
-      background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(4px);
-      padding: 12px 22px;
-      border-radius: 32px;
-      text-align: center;
-      min-width: 110px;
-    }
-
-    .faq-section {
-      max-width: 960px;
-      margin: 20px auto 70px;
-      padding: 0 24px;
-    }
-
-    .faq-item {
-      margin-bottom: 12px;
-      border-radius: 20px;
-      overflow: hidden;
-    }
-
-    .faq-q {
-      width: 100%;
-      padding: 16px 20px;
-      display: flex;
-      justify-content: space-between;
-      background: rgba(255, 255, 255, 0.9);
-      border: 1px solid #e2f0f8;
-      border-radius: 20px;
-      font-weight: 700;
-      cursor: pointer;
-      font-size: 1rem;
-    }
-
-    .faq-a {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.28s ease, padding 0.2s;
-    }
-
-    .faq-a.open {
-      max-height: 260px;
-      padding: 12px 20px 20px;
-      background: rgba(255, 255, 255, 0.9);
-      border-radius: 0 0 20px 20px;
-    }
-
-    .pub-footer {
-      text-align: center;
-      padding: 28px 12px;
-      background: rgba(0, 30, 55, 0.95);
-      color: #c1e5f5;
-      font-size: 0.85rem;
-    }
-
-    /* Dashboard Styles */
-    #dashboard {
-      background: #021a35;
-      min-height: 100vh;
-      display: none;
-    }
-
-    .dash-topbar {
-      background: linear-gradient(90deg, #011628, #012c46);
-      padding: 14px 28px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 2px solid #29b6f6;
-      flex-wrap: wrap;
-    }
-
-    .dash-body {
-      padding: 24px;
-    }
-
-    .metric-card, .tank-card {
-      background: #0a2744;
-      border: 1px solid #1e5080;
-      border-radius: 24px;
-      padding: 20px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-    }
-
-    .level-bar-bg {
-      background: #0d1e30;
-      height: 12px;
-      border-radius: 12px;
-      overflow: hidden;
-    }
-
-    .level-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #1565c0, #29b6f6);
-      width: 0%;
-      transition: width 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.1);
-    }
-
-    .tank-3d {
-      width: 90px;
-      height: 160px;
-      background: #041e30;
-      border-radius: 16px;
-      border: 2px solid #3a7aaa;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .tank-water {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      background: linear-gradient(180deg, #00c0ff, #0077a8);
-      transition: height 0.9s ease;
-    }
-
-    .zones-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-      margin-top: 20px;
-    }
-
-    .zone-card {
-      background: #0a2744;
-      border-radius: 24px;
-      padding: 18px;
-      border: 1px solid #1e5080;
-      transition: all 0.2s;
-    }
-
-    .zone-card.leak-zone {
-      border: 2px solid #f44336;
-      background: #2f1114;
-      box-shadow: 0 0 14px rgba(244, 67, 54, 0.4);
-      animation: alertShake 0.6s ease-in-out infinite alternate;
-    }
-
-    @keyframes alertShake {
-      from { transform: translateX(0px); }
-      to { transform: translateX(2px); }
-    }
-
-    .sensor-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-    .sensor-dot.normal { background: var(--safe); box-shadow: 0 0 6px #00c97a; }
-    .sensor-dot.leak { background: var(--warn); box-shadow: 0 0 12px #f44336; animation: blinkPulse 1s infinite; }
-    .sensor-dot.offline { background: var(--amber); }
-
-    @keyframes blinkPulse {
-      0% { opacity: 0.6; transform: scale(0.9);}
-      100% { opacity: 1; transform: scale(1.2);}
-    }
-
-    .modal-backdrop, .fault-backdrop, .auth-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 30, 55, 0.8);
-      backdrop-filter: blur(8px);
-      z-index: 500;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.25s;
-    }
-
-    .modal-backdrop.show, .fault-backdrop.show, .auth-overlay.show {
-      opacity: 1;
-      pointer-events: all;
-    }
-
-    .auth-panel, .history-panel, .fault-panel {
-      background: white;
-      border-radius: 32px;
-      max-width: 540px;
-      width: 90%;
-      padding: 28px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-    }
-
-    .toast-pile {
-      position: fixed;
-      top: 90px;
-      right: 20px;
-      z-index: 1000;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .toast {
-      background: white;
-      border-radius: 20px;
-      padding: 12px 16px;
-      display: flex;
-      gap: 12px;
-      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
-      border-left: 6px solid #00acc1;
-      max-width: 340px;
-    }
-
-    @media (max-width: 860px) {
-      .zones-grid { grid-template-columns: 1fr; }
-      .top-row { flex-direction: column; }
-    }
-
-    .pw-wrap { position: relative; }
-    .pw-toggle {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      cursor: pointer;
-    }
-    .pw-strength-bar { display: flex; gap: 6px; margin-top: 6px; }
-    .pw-strength-bar span { flex: 1; height: 5px; background: #ddd; border-radius: 4px; }
-    .pw-strength-bar span.s1 { background: #f44336; }
-    .pw-strength-bar span.s2 { background: #ff9800; }
-    .pw-strength-bar span.s3 { background: #ffb300; }
-    .pw-strength-bar span.s4 { background: #00c97a; }
-  </style>
-</head>
-<body>
-
+<!doctype html> <html lang="en"> <head> <meta charset="utf-8" /> <meta name="viewport" content="width=device-width,initial-scale=1" /> <title>Aqua Logic.co.za</title> <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet"> <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script> <script>(function(){ emailjs.init("njE3wzHhlXzpcVbHf"); })();</script> <style> :root{   --blue:#1565c0;--sky:#29b6f6;--teal:#00acc1;--glow:#00e5ff;   --safe:#00c97a;--warn:#f44336;--amber:#ffb300;   --glass:rgba(255,255,255,0.18);--rim:rgba(255,255,255,0.28);   --glass-dark:rgba(10,40,80,0.45);--rim-dark:rgba(255,255,255,0.15);   --text:#0d2137;--text-inv:#ffffff;--muted:#3a6080;--dim:rgba(13,33,55,0.4);   --r:14px;   --font-h:'Syne',sans-serif;--font-m:'DM Mono',monospace;--font-b:'Nunito',sans-serif; } *{margin:0;padding:0;box-sizing:border-box;} html{scroll-behavior:smooth;} body{font-family:var(--font-b);color:var(--text);min-height:100vh;overflow-x:hidden;background:linear-gradient(180deg,#e9faff 0%, #d6f0ff 12%, #f6fcff 100%);} .water-world{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:linear-gradient(180deg,#b3e5fc 0%, #0277bd 80%);filter:contrast(1.05) saturate(1.05);} .sun-bloom{position:absolute;top:-150px;left:50%;transform:translateX(-50%);width:1000px;height:360px;border-radius:50%;background:radial-gradient(ellipse at 50% 30%, rgba(255,253,200,0.55), transparent 60%);animation:sunPulse 9s ease-in-out infinite alternate;} @keyframes sunPulse{0%{opacity:.85;transform:translateX(-50%) scale(1);}100%{opacity:1;transform:translateX(-50%) scale(1.05);}} .caustics{position:absolute;bottom:0;left:0;width:100%;height:65%;background:radial-gradient(ellipse 140px 50px at 12% 80%, rgba(100,230,255,0.08) 0%,transparent 70%),radial-gradient(ellipse 100px 40px at 55% 90%, rgba(80,210,255,0.06) 0%,transparent 70%);opacity:.95;} .bubbles-wrap{position:absolute;inset:0;pointer-events:none;opacity:.9;} .bbl{position:absolute;border-radius:50%;background:radial-gradient(circle at 30% 25%,rgba(255,255,255,0.7),rgba(180,240,255,0.12));border:1px solid rgba(255,255,255,0.32);animation:bubbleRise linear infinite;} @keyframes bubbleRise{0%{transform:translateY(0);}100%{transform:translateY(-110vh);}} .waves-wrap{position:absolute;bottom:0;left:0;width:100%;overflow:hidden;line-height:0;pointer-events:none;} .wave-svg{position:absolute;bottom:0;left:0;width:200%;height:120px;animation:waveDrift linear infinite;opacity:.35;} @keyframes waveDrift{from{transform:translateX(0);}to{transform:translateX(-50%);}} .layer{position:relative;z-index:1;padding-bottom:40px;} .glass{background:rgba(255,255,255,0.22);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.35);border-radius:var(--r);} .glass-d{background:rgba(0,40,90,0.45);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.18);border-radius:var(--r);color:var(--text-inv);} .topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(255,255,255,0.24);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.28);} .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-h);font-size:1.1rem;font-weight:800;color:#0d2137;} .brand-drop{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--teal),var(--sky));display:flex;align-items:center;justify-content:center;font-size:1.05rem;color:#fff;box-shadow:0 6px 20px rgba(0,150,200,.12);} .hero{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px 36px;text-align:center;position:relative;} .hero-eyebrow{font-family:var(--font-m);font-size:.78rem;letter-spacing:3px;text-transform:uppercase;color:#005c7a;margin-bottom:12px;display:flex;align-items:center;gap:12px;} .hero-title{font-family:var(--font-h);font-size:clamp(2rem,5vw,4rem);font-weight:800;line-height:1.02;margin-bottom:16px;color:#072b3a;} .hero-sub{max-width:720px;color:#123c4e;margin-bottom:18px;line-height:1.6;} .hero-cta{display:flex;gap:12px;justify-content:center;} .hero-stats{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-top:26px;} .hero-stat{padding:12px 18px;border-radius:12px;background:rgba(255,255,255,0.9);display:flex;flex-direction:column;align-items:center;min-width:120px;} .hero-stat-val{font-family:var(--font-h);font-size:1.5rem;font-weight:800;color:#025e7b;} .hero-stat-lbl{font-size:.78rem;color:#3a6a88;margin-top:6px;} .faq-section{padding:36px 20px 80px;max-width:960px;margin:0 auto;} .section-title{font-family:var(--font-h);font-size:clamp(1.4rem,2.5vw,2rem);font-weight:800;text-align:center;margin-bottom:30px;color:#072b3a;} .faq-item{margin-bottom:12px;border-radius:12px;overflow:hidden;} .faq-q{width:100%;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.9);border:1px solid rgba(220,235,245,0.9);border-radius:12px;color:#0d2137;cursor:pointer;} .faq-a{max-height:0;overflow:hidden;transition:max-height .28s ease,padding .28s;} .faq-a.open{max-height:220px;padding:12px 18px;background:rgba(245,253,255,0.9);} .pub-footer a{color:#7dd8f0;text-decoration:underline;} .pub-footer{text-align:center;padding:28px 12px;background:rgba(0,20,50,0.92);border-top:2px solid rgba(41,182,246,0.25);font-size:.88rem;color:#e0f4ff;font-weight:600;} .auth-overlay{position:fixed;inset:0;z-index:500;background:rgba(0,30,60,0.62);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:18px;opacity:0;pointer-events:none;transition:opacity .28s;} .auth-overlay.show{opacity:1;pointer-events:all;} .auth-panel{width:100%;max-width:520px;padding:28px;border-radius:14px;background:linear-gradient(180deg,#ffffff,#f7fbff);border:1px solid rgba(0,172,193,0.14);position:relative;color:#072b3a;} .close-btn{position:absolute;top:14px;right:14px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:#5a7b8c;} #dashboard{display:none;min-height:80vh;background:#021a35;min-height:100vh;isolation:isolate;} .dash-topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;background:linear-gradient(90deg,#011628,#012040);color:#fff;border-bottom:2px solid rgba(41,182,246,0.3);position:sticky;top:0;z-index:200;box-shadow:0 4px 24px rgba(0,0,0,0.4);} .dash-brand-name{font-family:var(--font-h);font-size:1.05rem;font-weight:800;color:#fff;} .system-status{display:flex;align-items:center;gap:8px;font-family:var(--font-m);font-size:.82rem;color:#e0f4ff;} .status-dot{width:10px;height:10px;border-radius:50%;} .status-dot.green{background:var(--safe);box-shadow:0 0 10px #00c97a;} .status-dot.red{background:var(--warn);box-shadow:0 0 10px #f44336;} .dash-body{padding:22px;color:#fff;} .dash-welcome h2{font-family:var(--font-h);font-size:1.3rem;margin-bottom:4px;color:#fff;} .top-row{display:grid;grid-template-columns:1fr 380px;gap:16px;margin-bottom:20px;align-items:start;} .metric-card{padding:22px;border-radius:14px;background:#0a2744;border:2px solid #1e5080;box-shadow:0 4px 24px rgba(0,0,0,0.5);} .mc-label{font-family:var(--font-m);font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#5bc8ec;margin-bottom:10px;} .mc-val{font-family:var(--font-h);font-size:2.4rem;font-weight:800;color:#ffffff;} .level-bar-bg{height:12px;background:#0d1e30;border-radius:6px;overflow:hidden;margin-top:12px;border:1px solid #1e4060;} .level-bar-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,#1565c0,#29b6f6);transition:width 1s cubic-bezier(.2,0,.2,1);} .tank-card{padding:22px;border-radius:14px;background:#0a2744;border:2px solid #1e5080;box-shadow:0 4px 24px rgba(0,0,0,0.5);} .tank-3d{width:86px;height:160px;flex-shrink:0;border-radius:10px;border:2px solid #3a7aaa;position:relative;background:#051525;overflow:hidden;} .tank-water{position:absolute;bottom:0;width:100%;background:linear-gradient(180deg,#00c0ff,#0077a8);transition:height 1.1s ease-in-out;} .tank-pct-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-h);font-size:.9rem;font-weight:800;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.8);z-index:2;} .zones-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;} .zone-card{padding:18px;border-radius:14px;background:#0a2744;border:2px solid #1e5080;position:relative;box-shadow:0 4px 18px rgba(0,0,0,0.4);} .zone-card.leak-zone{background:#2a0a0a;border:2px solid #d32f2f;box-shadow:0 6px 32px rgba(211,47,47,0.3);animation:alertPulse 2s ease-in-out infinite;} @keyframes alertPulse{0%{transform:translateY(0);}50%{transform:translateY(-2px);}100%{transform:none;}} .zone-id{font-family:var(--font-m);font-size:.72rem;color:#5bc8ec;margin-bottom:8px;letter-spacing:1.5px;text-transform:uppercase;} .zone-name-big{font-family:var(--font-h);font-size:1.1rem;font-weight:800;margin-bottom:6px;color:#fff;} .sensor-status{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;background:#051e38;border:1px solid #1e5080;margin-bottom:12px;} .sensor-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;} .sensor-dot.normal{background:var(--safe);box-shadow:0 0 8px #00c97a;} .sensor-dot.leak{background:var(--warn);box-shadow:0 0 12px #f44336;animation:fastBlink 1s infinite;} .sensor-dot.offline{background:var(--amber);box-shadow:0 0 8px #ffb300;} @keyframes fastBlink{0%,100%{transform:scale(1);}50%{transform:scale(1.2);}} .dash-footer{text-align:center;padding:22px 12px;border-top:1px solid rgba(41,182,246,0.2);font-size:.82rem;color:rgba(255,255,255,0.5);margin-top:28px;} .modal-backdrop{position:fixed;inset:0;z-index:600;background:rgba(0,30,60,0.7);backdrop-filter:blur(10px);display:flex;align-items:flex-end;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .25s;} .modal-backdrop.show{opacity:1;pointer-events:all;} .history-panel{width:100%;max-width:760px;background:linear-gradient(180deg,#ffffff,#f7fbff);border-radius:14px;overflow:hidden;transform:translateY(30px);transition:transform .28s;} .history-head{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #e8f5fb;} .history-body{max-height:380px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#fbfeff;} .h-item{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:10px;border:1px solid #e6f4fb;background:#fff;} .h-item-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;} .h-item-title{font-size:.95rem;font-weight:700;color:#083247;} .h-item-meta{display:flex;gap:12px;margin-top:6px;font-size:.78rem;color:#3a6a7a;} .fault-backdrop{position:fixed;inset:0;z-index:700;background:rgba(0,20,50,.72);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .25s;} .fault-backdrop.show{opacity:1;pointer-events:all;} .fault-panel{width:100%;max-width:640px;background:linear-gradient(180deg,#fff8f8,#fff);border-radius:12px;padding:18px;border:1px solid rgba(244,67,54,.08);color:#361616;} .email-preview{background:#f5fbff;border:1px solid #dbeff8;border-radius:10px;padding:12px;font-family:var(--font-m);font-size:.82rem;color:#0b4160;white-space:pre-wrap;max-height:220px;overflow:auto;} .map-mock{width:100%;height:140px;border-radius:12px;background:linear-gradient(180deg,#eaf9ff,#d9f1ff);border:1px solid #cfeefc;padding:10px;display:flex;align-items:center;justify-content:center;position:relative;margin-top:12px;} .map-svg{width:100%;height:100%;} .map-marker{cursor:pointer;transform-origin:center;transition:transform .18s;} .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;} .ctrl{padding:8px 12px;border-radius:8px;background:rgba(255,255,255,0.9);cursor:pointer;border:1px solid #dbeff8;font-weight:700;color:#064a5b;} .toast-pile{position:fixed;top:86px;right:20px;z-index:999;display:flex;flex-direction:column;gap:10px;pointer-events:none;} .toast{max-width:360px;padding:12px 14px;background:#fff;border-radius:10px;border:1px solid #e3f3fb;display:flex;gap:12px;align-items:flex-start;box-shadow:0 8px 30px rgba(5,50,80,0.06);pointer-events:all;} .toast .toast-title{font-weight:800;color:#063b4e;} .toast .toast-msg{font-size:.88rem;color:#3a6a7a;} .spark{width:72px;height:18px;border-radius:6px;background:linear-gradient(180deg,#ffffff,#f3f9ff);padding:6px;display:inline-block} .pw-wrap{position:relative;display:flex;align-items:center;} .pw-wrap input{width:100%;padding:10px 38px 10px 10px;border-radius:8px;border:1px solid #e6f6fb;font-size:.92rem;transition:border-color .2s;} .pw-toggle{position:absolute;right:10px;background:none;border:none;cursor:pointer;color:#5a7b8c;font-size:1rem;padding:2px;display:flex;align-items:center;transition:color .2s;} .pw-toggle:hover{color:#025e7b;} .pw-strength-bar{display:flex;gap:4px;margin-top:6px;} .pw-strength-bar span{flex:1;height:4px;border-radius:4px;background:#e6eef3;transition:background .3s;} .pw-strength-bar span.s1{background:#f44336;} .pw-strength-bar span.s2{background:#ff9800;} .pw-strength-bar span.s3{background:#ffb300;} .pw-strength-bar span.s4{background:#00c97a;} .pw-strength-label{font-size:.75rem;margin-top:3px;font-weight:700;height:14px;} .pw-strength-label.s1{color:#f44336;} .pw-strength-label.s2{color:#ff9800;} .pw-strength-label.s3{color:#ffb300;} .pw-strength-label.s4{color:#00c97a;} .pw-reqs{margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;} .pw-req{display:flex;align-items:center;gap:6px;font-size:.78rem;color:#7a9aaa;transition:color .22s;} .pw-req.met{color:#00b86b;} .pw-req .req-dot{width:14px;height:14px;border-radius:50%;border:2px solid #cde0ea;display:flex;align-items:center;justify-content:center;font-size:.55rem;transition:all .22s;flex-shrink:0;background:#fff;} .pw-req.met .req-dot{border-color:#00c97a;background:#00c97a;color:#fff;} @media(max-width:980px){.top-row{grid-template-columns:1fr;}.zones-grid{grid-template-columns:1fr;}} </style> </head> <body>
 <div class="water-world" aria-hidden="true">
   <div class="sun-bloom"></div>
   <div class="caustics"></div>
-  <div class="waves-wrap"><svg class="wave-svg" viewBox="0 0 1440 120"><path d="M0,64 C280,110 480,22 720,70 C960,118 1160,28 1440,72 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.1)"/></svg></div>
-  <div class="bubbles-wrap" id="bubbleWrap"></div>
+  <div class="waves-wrap" aria-hidden="true">
+    <svg class="wave-svg" viewBox="0 0 1440 120" preserveAspectRatio="none"><path d="M0,60 C200,120 400,20 600,70 C800,120 1000,30 1200,80 C1320,110 1380,55 1440,70 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.06)"/></svg>
+  </div>
+  <div class="bubbles-wrap" id="bubWrap"></div>
 </div>
 
-<div id="publicSite" class="layer">
+<div id="publicSite" class="layer" role="main">
   <nav class="topbar">
-    <div class="brand"><div class="brand-drop">💧</div> Aqua Logic</div>
-    <div style="display:flex;gap:10px;"><button class="ctrl" onclick="openAuth('login')">Login</button><button class="ctrl" onclick="openAuth('register')">Register</button></div>
+    <div class="brand"><div class="brand-drop">💧</div>Aqua Logic</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="ctrl" onclick="document.getElementById('faq-section').scrollIntoView({behavior:'smooth'})">FAQ</button>
+      <button class="ctrl" onclick="openAuth('login')">Login</button>
+      <button class="ctrl" onclick="openAuth('register')">Register</button>
+    </div>
   </nav>
+
   <section class="hero">
-    <h1 class="hero-title">Smart Water<br><span style="background:linear-gradient(90deg,#00acc1,#29b6f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Intelligence System</span></h1>
-    <p class="hero-sub">Real‑time leak detection, reservoir monitoring & automated fault escalation for Johannesburg’s water infrastructure.</p>
-    <div class="hero-stats">
-      <div class="stat-card"><strong style="font-size:1.5rem;">3</strong><br>Active Zones</div>
-      <div class="stat-card"><strong style="font-size:1.5rem;">24/7</strong><br>Monitoring</div>
-      <div class="stat-card"><strong style="font-size:1.5rem;">&lt;2s</strong><br>Alert</div>
+    <div class="hero-eyebrow"><span></span>National Water Intelligence<span></span></div>
+    <h1 class="hero-title">Smart Water<br><span style="background:linear-gradient(90deg,var(--teal),var(--sky));-webkit-background-clip:text;-webkit-text-fill-color:transparent">Monitoring System</span></h1>
+    <p class="hero-sub">Real-time leak detection, reservoir monitoring, automated fault escalation — protecting Johannesburg's water infrastructure around the clock.</p>
+    <div class="hero-cta">
+      <button class="ctrl" onclick="document.getElementById('faq-section').scrollIntoView({behavior:'smooth'})">Learn More</button>
+    </div>
+    <div class="hero-stats" role="status" aria-live="polite">
+      <div class="hero-stat glass"><div class="hero-stat-val" id="statZones">3</div><div class="hero-stat-lbl">Active Zones</div></div>
+      <div class="hero-stat glass"><div class="hero-stat-val">24/7</div><div class="hero-stat-lbl">Monitoring</div></div>
+      <div class="hero-stat glass"><div class="hero-stat-val">&lt;2s</div><div class="hero-stat-lbl">Alert Response</div></div>
+      <div class="hero-stat glass"><div class="hero-stat-val">98%</div><div class="hero-stat-lbl">Uptime</div></div>
     </div>
   </section>
-  <section class="faq-section" id="faqSection"><h2 style="font-family:var(--font-h);margin-bottom:24px;text-align:center;">Frequently Asked</h2><div id="faqList"></div></section>
-  <footer class="pub-footer">© Aqua Logic 2026 · National Water Intelligence · Emergency: fault@jwater.co.za</footer>
+
+  <section id="faq-section" class="faq-section">
+    <h2 class="section-title">Frequently Asked <span style="color:#005c7a">Questions</span></h2>
+    <div id="faqList"></div>
+  </section>
+
+  <footer class="pub-footer">
+    <p>© Aqua Logic 2026 · National Water Intelligence · Powered by Smart Sensor Technology</p>
+    <p style="margin-top:6px">Emergency Faults: <a href="mailto:fault@jwater.co.za">fault@jwater.co.za</a> · Joburg Water Hotline: <strong>0860 562 874</strong></p>
+  </footer>
 </div>
 
-<div id="dashboard">
-  <div class="dash-topbar"><div style="display:flex;gap:12px;"><div class="brand-drop" style="width:34px;height:34px;">💧</div><strong style="color:white;">Aqua Logic</strong></div><div><span id="dashUserName" style="color:white;margin-right:12px;"></span><button class="ctrl" onclick="logout()">Logout</button></div></div>
-  <div class="dash-body">
-    <div class="top-row" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;">
-      <div class="metric-card"><div class="mc-label">💧 RESERVOIR LEVEL</div><div style="font-size:2.6rem;font-weight:800;" id="levelVal">—%</div><div class="level-bar-bg mt-2"><div class="level-bar-fill" id="levelBarFill"></div></div></div>
-      <div class="tank-card"><div style="display:flex;gap:18px;"><div class="tank-3d"><div class="tank-water" id="tankWaterFill"></div><div class="tank-pct-label" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;" id="tankPct">—</div></div><div><div>Inflow: <strong id="inflowVal">—</strong> L/s</div><div>Outflow: <strong id="outflowVal">—</strong> L/s</div><div>Temp: <strong id="tempVal">—</strong>°C</div><button class="ctrl" style="margin-top:12px;" onclick="refreshDash()">⟳ Refresh</button></div></div></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;"><h3 style="color:#e0f4ff;">🔍 Sensor Zones</h3><div><button class="ctrl" onclick="openHistoryModal()">📋 History</button><button class="ctrl" id="autoEmailToggle">Auto‑email: ON</button><button class="ctrl" onclick="simulateRandomLeak()">⚡ Simulate Leak</button></div></div>
-    <div class="zones-grid" id="zonesGrid"></div>
-    <footer class="pub-footer" style="background:#021a35;margin-top:32px;">© Aqua Logic · Smart Water Infrastructure</footer>
+<div class="auth-overlay" id="authOverlay" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="auth-panel" id="authPanel">
+    <button class="close-btn" onclick="closeAuth()">✕</button>
+    <div id="authContent"></div>
   </div>
 </div>
 
-<div class="auth-overlay" id="authOverlay"><div class="auth-panel" id="authPanel"><button class="close-btn" style="float:right;background:none;border:none;font-size:1.4rem;" onclick="closeAuth()">✕</button><div id="authContent"></div></div></div>
-<div class="modal-backdrop" id="historyModal"><div class="history-panel" style="max-width:700px;"><div style="padding:18px;"><h3>📜 Incident Log</h3><div id="historyLogList" style="max-height:400px;overflow-y:auto;"></div><button class="ctrl" style="margin-top:12px;" onclick="closeHistoryModal()">Close</button></div></div></div>
-<div class="fault-backdrop" id="faultModal"><div class="fault-panel"><h3>🚨 Leak Escalation</h3><pre id="faultEmailPreview" style="background:#f5f9fe;padding:12px;border-radius:16px;font-size:12px;white-space:pre-wrap;"></pre><div style="display:flex;gap:12px;margin-top:16px;"><button class="ctrl" onclick="sendFaultNow()">📧 Send Report</button><button class="ctrl" onclick="closeFaultModal()">Cancel</button></div></div></div>
-<div class="toast-pile" id="toastArea"></div>
+<div id="dashboard" class="layer" aria-hidden="true">
+  <header class="dash-topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="brand-drop" style="width:32px;height:32px">💧</div>
+      <div><div class="dash-brand-name">Aqua Logic</div><div style="font-size:.78rem;opacity:.9">National Water Intelligence</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <div class="system-status" id="sysStatus">
+        <div class="status-dot green" id="sysStatusDot"></div>
+        <div id="sysStatusTxt">ALL SYSTEMS NOMINAL</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="background:rgba(255,255,255,0.06);padding:8px 12px;border-radius:24px;color:#fff">👤 <strong id="dashUserName">—</strong></div>
+        <button class="ctrl" onclick="refreshDash()">↻ Refresh</button>
+        <button class="ctrl" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="dash-body">
+    <div class="dash-welcome">
+      <h2 id="dashWelcome">Welcome back</h2>
+      <p id="dashTime" style="opacity:.9;font-size:.9rem"></p>
+    </div>
+    <div class="top-row">
+      <div class="metric-card" aria-live="polite">
+        <div class="mc-label">💧 Reservoir Water Level</div>
+        <div class="mc-val"><span id="levelVal">—</span><span style="font-size:1rem;margin-left:6px;color:#7dd8f0">%</span></div>
+        <div class="level-bar-bg" style="margin-top:16px;"><div class="level-bar-fill" id="levelBar" style="width:0%"></div></div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--font-m);font-size:.72rem;color:rgba(255,255,255,0.5);margin-top:8px"><span>0%</span><span>50%</span><span>100%</span></div>
+      </div>
+      <div class="tank-card">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="flex:0 0 auto">
+            <div class="tank-3d">
+              <div class="tank-water" id="tankWater" style="height:0%"></div>
+              <div class="tank-pct-label" id="tankPctLbl">—</div>
+            </div>
+          </div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;margin-bottom:12px;gap:8px">
+              <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:10px 12px;flex:1;text-align:center"><div style="font-size:.7rem;color:#7dd8f0;font-family:var(--font-m);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Inflow</div><div style="font-weight:800;color:#fff;font-size:.95rem" id="inflowVal">—</div></div>
+              <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:10px 12px;flex:1;text-align:center"><div style="font-size:.7rem;color:#7dd8f0;font-family:var(--font-m);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Outflow</div><div style="font-weight:800;color:#fff;font-size:.95rem" id="outflowVal">—</div></div>
+              <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:10px 12px;flex:1;text-align:center"><div style="font-size:.7rem;color:#7dd8f0;font-family:var(--font-m);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Temp</div><div style="font-weight:800;color:#fff;font-size:.95rem" id="tempVal">—</div></div>
+            </div>
+            <div class="map-mock">
+              <svg class="map-svg" viewBox="0 0 600 200" preserveAspectRatio="xMidYMid meet">
+                <rect x="0" y="0" width="600" height="200" rx="10" fill="url(#g1)"></rect>
+                <defs><linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#e9fbff"/><stop offset="1" stop-color="#d6f1ff"/></linearGradient></defs>
+                <path d="M40 160 C120 120 220 180 300 140 C380 100 480 160 560 120" fill="none" stroke="#cfeefc" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
+                <g id="markerA" class="map-marker" transform="translate(120,70)"><circle r="12" fill="#00e5a0" stroke="#fff" stroke-width="2"></circle><text x="18" y="6" font-size="14" fill="#024" font-family="Nunito" font-weight="800">A</text></g>
+                <g id="markerB" class="map-marker" transform="translate(320,110)"><circle r="12" fill="#29b6f6" stroke="#fff" stroke-width="2"></circle><text x="18" y="6" font-size="14" fill="#024" font-family="Nunito" font-weight="800">B</text></g>
+                <g id="markerC" class="map-marker" transform="translate(460,60)"><circle r="12" fill="#ff8a80" stroke="#fff" stroke-width="2"></circle><text x="18" y="6" font-size="14" fill="#024" font-family="Nunito" font-weight="800">C</text></g>
+              </svg>
+            </div>
+            <div class="controls" style="margin-top:12px">
+              <button class="ctrl" id="toggleAutoEmail">Auto-email: ON</button>
+              <button class="ctrl" id="silenceAlerts">Silence Alerts</button>
+              <button class="ctrl" onclick="openHistory()">View History</button>
+              <button class="ctrl" onclick="simulateLeak()">Trigger Leak</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="zones-section" style="margin-top:6px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <h3 style="color:#e0f4ff;font-family:var(--font-h);font-size:1.1rem;">🔍 Sensor Zones</h3>
+        <div style="display:flex;gap:8px">
+          <button class="ctrl" onclick="openHistory()">📋 Incident History</button>
+          <div style="color:#e0f4ff;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);font-weight:700" id="autoEmailStatus">Escalation To: fault&#64;jwater.co.za</div>
+        </div>
+      </div>
+      <div class="zones-grid" id="zonesGrid" aria-live="polite"></div>
+    </div>
+    <footer class="dash-footer">
+      © Aqua Logic 2026 · National Water Intelligence · Powered by Smart Sensor Technology
+    </footer>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="historyModal" aria-hidden="true">
+  <div class="history-panel" role="dialog" aria-modal="true">
+    <div class="history-head">
+      <h3>📋 Sensor Incident History</h3>
+      <div style="display:flex;gap:8px">
+        <button class="ctrl" onclick="filterHistory('all',this)">All</button>
+        <button class="ctrl" onclick="filterHistory('leak',this)">Leaks</button>
+        <button class="ctrl" onclick="filterHistory('normal',this)">Normal</button>
+        <button class="ctrl" onclick="filterHistory('email',this)">Reports</button>
+      </div>
+    </div>
+    <div class="history-body" id="historyBody"></div>
+    <div style="padding:12px;border-top:1px solid #eef8fc;display:flex;justify-content:flex-end">
+      <button class="ctrl" onclick="closeHistory()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="fault-backdrop" id="faultModal" aria-hidden="true">
+  <div class="fault-panel" role="dialog" aria-modal="true">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h3 style="margin-bottom:6px">🚨 Leak Detected — Prepare Fault Report</h3>
+        <div style="color:#653033">Dispatch automated report to Joburg Water</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="ctrl" onclick="closeFault()">Dismiss</button>
+        <button class="ctrl" id="sendFaultBtn" onclick="sendFaultEmail()">Send Report</button>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="email-preview" id="faultEmailBody" role="region" aria-live="polite"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-pile" id="toastPile" aria-live="polite"></div>
 
 <script>
-  // --- GLOBAL STATE ---
-  let currentUser = null;
-  let pendingReg = null;
-  let emailOtp = "", smsOtp = "";
-  let incidentLog = [];
-  let leakZonesActive = [];
-  let autoEmailEnabled = true;
-  let forcedLeakZone = null;
-  let lastEmailTime = 0;
+const $ = (id)=>document.getElementById(id);
+function showToast(title,msg,timeout=4200){
+  const pile=$('toastPile');
+  const t=document.createElement('div');
+  t.className='toast';
+  t.innerHTML=`<div style="font-size:20px">💧</div><div><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div></div>`;
+  pile.appendChild(t);
+  setTimeout(()=>{t.style.opacity=0;t.style.transform='translateX(18px)';setTimeout(()=>t.remove(),400);},timeout);
+}
 
-  // Helpers
-  function toast(title, msg, sec = 4) { let pile = document.getElementById('toastArea'); let t = document.createElement('div'); t.className = 'toast'; t.innerHTML = `<div>💧</div><div><strong>${title}</strong><br>${msg}</div>`; pile.appendChild(t); setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, sec * 1000); }
-  function genOtp() { return Math.floor(100000 + Math.random() * 900000).toString(); }
-  function setEl(id, val) { let e = document.getElementById(id); if (e) e.innerText = val; }
-
-  // bubbles
-  (function initBubbles() { let wrap = document.getElementById('bubbleWrap'); if (!wrap) return; for (let i = 0; i < 26; i++) { let b = document.createElement('div'); b.className = 'bbl'; let s = Math.random() * 18 + 5; b.style.width = s + 'px'; b.style.height = s + 'px'; b.style.left = Math.random() * 95 + '%'; b.style.bottom = '-30px'; b.style.animationDuration = Math.random() * 12 + 8 + 's'; b.style.animationDelay = Math.random() * -15 + 's'; wrap.appendChild(b); } })();
-
-  // FAQ
-  const faqData = [{ q: "What does Aqua Logic do?", a: "Real‑time reservoir & leak detection with automated alerts to Joburg Water." }, { q: "How are leaks detected?", a: "Pressure/flow anomalies trigger zone alerts & instant fault reports." }, { q: "Is it live demo?", a: "Yes — full simulation with random events, but you can trigger leaks manually." }, { q: "Who gets the fault email?", a: "fault@jwater.co.za (demo opens mail client)." }];
-  document.getElementById('faqList').innerHTML = faqData.map((f, i) => `<div class="faq-item"><button class="faq-q" onclick="document.getElementById('fa-${i}').classList.toggle('open')">${f.q}<span>▼</span></button><div id="fa-${i}" class="faq-a"><p>${f.a}</p></div></div>`).join('');
-
-  // Auth UI
-  function openAuth(mode) { window.authMode = mode; renderAuthForm(); document.getElementById('authOverlay').classList.add('show'); }
-  function closeAuth() { document.getElementById('authOverlay').classList.remove('show'); }
-  function renderAuthForm() {
-    let c = document.getElementById('authContent');
-    if (window.authMode === 'login') c.innerHTML = `<h3>Sign In</h3><input id="loginEmail" placeholder="email" style="width:100%;margin:8px 0;padding:10px;"><div class="pw-wrap"><input id="loginPass" type="password" placeholder="password" style="width:100%;padding:10px;"><button class="pw-toggle" onclick="togglePass('loginPass',this)">👁️</button></div><button class="ctrl" style="margin-top:12px;" onclick="doLogin()">Login</button><p style="margin-top:8px;">Demo: demo@aqua.co.za / demo123</p>`;
-    else c.innerHTML = `<h3>Register</h3><input id="regName" placeholder="Full name"><input id="regEmail" placeholder="Email" style="margin-top:8px;width:100%;padding:8px;"><input id="regPhone" placeholder="Phone +27" style="margin-top:8px;width:100%;padding:8px;"><div class="pw-wrap"><input id="regPass" type="password" placeholder="Password (min 8 chars)" style="width:100%;margin-top:8px;padding:8px;"><button class="pw-toggle" onclick="togglePass('regPass',this)">👁️</button></div><div class="pw-strength-bar" id="pwBar"><span></span><span></span><span></span><span></span></div><button class="ctrl" style="margin-top:12px;" onclick="doRegister()">Next → Verify</button>`;
-    if (window.authMode === 'register') attachPwStrength();
+(function makeBubbles(){
+  const bw=$('bubWrap'); if(!bw) return;
+  for(let i=0;i<20;i++){
+    const b=document.createElement('div'); b.className='bbl';
+    const sz=Math.random()*16+6, left=Math.random()*98, dur=Math.random()*10+10, del=Math.random()*-20;
+    b.style.cssText=`width:${sz}px;height:${sz}px;left:${left}%;bottom:-${sz}px;animation-duration:${dur}s;animation-delay:${del}s;`;
+    bw.appendChild(b);
   }
-  function togglePass(id, btn) { let inp = document.getElementById(id); if (!inp) return; inp.type = inp.type === 'password' ? 'text' : 'password'; btn.innerText = inp.type === 'password' ? '👁️' : '🙈'; }
-  function attachPwStrength() { let pass = document.getElementById('regPass'); if (!pass) return; pass.addEventListener('input', () => { let val = pass.value; let strength = 0; if (val.length >= 8) strength++; if (/[A-Z]/.test(val)) strength++; if (/[0-9]/.test(val)) strength++; if (/[^a-zA-Z0-9]/.test(val)) strength++; let bars = document.querySelectorAll('#pwBar span'); bars.forEach((b, idx) => { if (idx < strength) b.className = `s${strength}`; else b.className = ''; }); }); }
-  function doLogin() { let email = document.getElementById('loginEmail')?.value; let pwd = document.getElementById('loginPass')?.value; if (email === 'demo@aqua.co.za' && pwd === 'demo123') { currentUser = { name: 'Demo', email: 'demo@aqua.co.za', phone: '+27110000000' }; localStorage.setItem('aquaUser', JSON.stringify(currentUser)); closeAuth(); launchDashboard(); toast('Welcome', 'Demo session started'); return; } let stored = localStorage.getItem('aquaUser'); if (stored) { let u = JSON.parse(stored); if (u.email === email && u.pass === pwd) { currentUser = u; closeAuth(); launchDashboard(); return; } } toast('Error', 'Invalid credentials'); }
-  function doRegister() { let name = document.getElementById('regName')?.value; let email = document.getElementById('regEmail')?.value; let phone = document.getElementById('regPhone')?.value; let pass = document.getElementById('regPass')?.value; if (!name || !email || !phone || pass.length < 6) { toast('Missing', 'Complete all fields & password min 6'); return; } pendingReg = { name, email, phone, pass }; emailOtp = genOtp(); smsOtp = genOtp(); emailjs.send("service_36h95pb", "template_len1b5s", { to_email: email, otp_code: emailOtp }).catch(() => { }); toast('📧 OTP Sent', `Demo OTP: ${emailOtp}`, 5); window.authMode = 'verifyEmail'; renderAuthForm(); document.getElementById('authContent').innerHTML = `<h3>Verify Email</h3><p>Code sent to ${email}</p><input id="otpCode" placeholder="6-digit OTP"><button class="ctrl" onclick="verifyEmailStep()">Verify</button>`; }
-  function verifyEmailStep() { let code = document.getElementById('otpCode')?.value; if (code !== emailOtp) { toast('Wrong OTP', 'Try again'); return; } window.authMode = 'verifySms'; document.getElementById('authContent').innerHTML = `<h3>Verify SMS</h3><p>Demo SMS code: ${smsOtp}</p><input id="smsCode" placeholder="6-digit OTP"><button class="ctrl" onclick="verifySmsStep()">Complete</button>`; }
-  function verifySmsStep() { let code = document.getElementById('smsCode')?.value; if (code !== smsOtp) { toast('Wrong SMS OTP', 'retry'); return; } let user = { ...pendingReg, pass: pendingReg.pass }; localStorage.setItem('aquaUser', JSON.stringify(user)); currentUser = user; closeAuth(); launchDashboard(); toast('🎉 Welcome', `Account created, ${user.name}`); fireConfetti(); }
-  function fireConfetti() { for (let i = 0; i < 36; i++) { let conf = document.createElement('div'); conf.style.cssText = `position:fixed;left:${Math.random() * 100}%;top:50%;width:8px;height:12px;background:${['#f44336','#29b6f6','#ffb74d','#66bb6a'][i%4]};border-radius:2px;z-index:9999;transition:all 1.2s ease;`; document.body.appendChild(conf); setTimeout(() => { conf.style.top = '80%'; conf.style.opacity = '0'; conf.style.transform = 'rotate(360deg)'; }, 20); setTimeout(() => conf.remove(), 1300); } }
+})();
 
-  // Dashboard
-  function launchDashboard() {
-    document.getElementById('publicSite').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    document.getElementById('dashUserName').innerText = currentUser?.name || 'Operator';
-    seedInitialLog();
-    refreshDashboard();
-    setInterval(() => { if (document.getElementById('dashboard').style.display === 'block') refreshDashboard(); }, 11000);
-    let toggleBtn = document.getElementById('autoEmailToggle');
-    if (toggleBtn) toggleBtn.onclick = () => { autoEmailEnabled = !autoEmailEnabled; toggleBtn.innerText = `Auto-email: ${autoEmailEnabled ? 'ON' : 'OFF'}`; toast('Settings', `Auto escalation ${autoEmailEnabled ? 'active' : 'silenced'}`); };
+const FAQS=[
+  {q:"What is Aqua Logic?",a:"Aqua Logic is a Smart Water Intelligence platform that monitors water infrastructure in real-time — tracking reservoir levels, daily usage, and detecting leaks across Zones A, B, and C. It automatically prepares fault reports for Joburg Water."},
+  {q:"How does sensor-based leak detection work?",a:"Each zone has a smart sensor. The system monitors flow and pressure; anomalies (unexpected flow or sudden pressure drops) trigger a leak alert and an incident record."},
+  {q:"What does 'Normal — No water detected' mean?",a:"This means the sensor is active and not detecting unexpected water activity. This is the desired state for zones that should be dry."},
+  {q:"Why verify phone and email?",a:"Verification ensures alerts reach operators. Phone receives SMS for critical leaks and email is used for fault reports. Demo mode displays OTPs in the UI."},
+  {q:"What happens when a leak is detected?",a:"The affected zone displays an alert, appears on the map, logs a high-priority event, and prepares an automated fault report for Joburg Water. Operators can acknowledge, silence or escalate."},
+  {q:"How do I view incident history?",a:"Click 'Incident History' in the dashboard or press H. Filters allow view by Leaks, Normal events, or Email reports."}
+];
+$('faqList').innerHTML = FAQS.map((f,i)=>`<div class="faq-item"><button class="faq-q" onclick="toggleFaq(${i},this)"><span>${f.q}</span><span>▾</span></button><div class="faq-a" id="fa-${i}"><p style="padding-top:6px">${f.a}</p></div></div>`).join('');
+function toggleFaq(i,btn){
+  const el=$('fa-'+i); const open=el.classList.contains('open');
+  document.querySelectorAll('.faq-a').forEach(e=>e.classList.remove('open'));
+  if(!open) el.classList.add('open');
+}
+
+const APP={user:null,pendingReg:null,emailOTP:'',smsOTP:'',authStep:'login',incidentLog:[],leakZones:[],autoEmail:true,silenceUntil:0,lastEmailSentAt:0,escalationsSent:{}};
+
+const PW_RULES = [
+  { id:'len',   label:'8+ characters',      test: p => p.length >= 8 },
+  { id:'upper', label:'Uppercase letter',   test: p => /[A-Z]/.test(p) },
+  { id:'lower', label:'Lowercase letter',   test: p => /[a-z]/.test(p) },
+  { id:'digit', label:'Number (0–9)',        test: p => /\d/.test(p) },
+  { id:'spec',  label:'Special character',  test: p => /[^A-Za-z0-9]/.test(p) },
+  { id:'nosp',  label:'No spaces',          test: p => !/\s/.test(p) && p.length > 0 },
+];
+
+function getStrength(pw){
+  const met = PW_RULES.filter(r=>r.test(pw)).length;
+  if(pw.length === 0) return 0;
+  if(met <= 2) return 1;
+  if(met === 3) return 2;
+  if(met === 4 || met === 5) return 3;
+  return 4;
+}
+
+function updatePwFeedback(pw, barId, labelId, reqsId){
+  const s = getStrength(pw);
+  const bar = $(barId);
+  const lbl = $(labelId);
+  const reqs = document.querySelectorAll(`#${reqsId} .pw-req`);
+  if(bar){
+    const spans = bar.querySelectorAll('span');
+    spans.forEach((sp,i)=>{ sp.className = (i < s) ? `s${s}` : ''; });
   }
-  function seedInitialLog() { if (incidentLog.length === 0) incidentLog = [{ type: 'normal', msg: 'System online — all sensors nominal', time: new Date().toLocaleTimeString(), zone: 'Core' }]; }
-  function refreshDashboard() {
-    let level = Math.floor(Math.random() * 55) + 30;
-    setEl('levelVal', level + '%');
-    let fillBar = document.getElementById('levelBarFill'); if (fillBar) fillBar.style.width = level + '%';
-    let tankFill = document.getElementById('tankWaterFill'); if (tankFill) tankFill.style.height = level + '%';
-    let tankPct = document.getElementById('tankPct'); if (tankPct) tankPct.innerText = level + '%';
-    setEl('inflowVal', (Math.random() * 28 + 12).toFixed(1));
-    setEl('outflowVal', (Math.random() * 22 + 7).toFixed(1));
-    setEl('tempVal', (Math.random() * 9 + 17).toFixed(1));
-    renderZones();
-  }
-  function renderZones() {
-    let zones = [{ id: 'A', name: 'Alpha Sector' }, { id: 'B', name: 'Beta Pipeline' }, { id: 'C', name: 'Charlie Grid' }];
-    let grid = document.getElementById('zonesGrid');
-    if (!grid) return;
-    grid.innerHTML = '';
-    leakZonesActive = [];
-    zones.forEach(zone => {
-      let isLeak = forcedLeakZone === zone.id || (Math.random() < 0.22 && !forcedLeakZone);
-      if (isLeak) leakZonesActive.push(zone.id);
-      let statusClass = isLeak ? 'leak' : 'normal';
-      let statusText = isLeak ? '⚠ LEAK DETECTED' : '✓ NORMAL — NO WATER';
-      let flow = (Math.random() * 18 + 6).toFixed(1);
-      let pressure = (Math.random() * 2.5 + 1.2).toFixed(2);
-      let card = document.createElement('div');
-      card.className = `zone-card ${isLeak ? 'leak-zone' : ''}`;
-      card.innerHTML = `<div><strong>Zone ${zone.id} · ${zone.name}</strong></div><div class="sensor-status" style="display:flex;align-items:center;gap:8px;margin:10px 0"><div class="sensor-dot ${statusClass}"></div><span>${statusText}</span></div><div>Flow: ${flow} L/s &nbsp; Pressure: ${pressure} bar</div><div style="margin-top:12px;"><button class="ctrl" onclick="acknowledgeZone('${zone.id}')">Acknowledge</button><button class="ctrl" onclick="isolateZoneSim('${zone.id}')">Isolate</button></div>`;
-      grid.appendChild(card);
-      let t = new Date().toLocaleTimeString();
-      if (isLeak) logIncident('leak', `Zone ${zone.id}: Unusual pressure drop (${pressure} bar)`, t, zone.id);
-      else logIncident('normal', `Zone ${zone.id}: Normal operation (${flow} L/s)`, t, zone.id);
+  const labels = ['','Weak','Fair','Good','Strong'];
+  if(lbl){ lbl.textContent = pw.length ? labels[s] : ''; lbl.className = `pw-strength-label${pw.length ? ' s'+s : ''}`; }
+  if(reqs.length){
+    PW_RULES.forEach((rule,i)=>{
+      if(reqs[i]) reqs[i].classList.toggle('met', rule.test(pw));
     });
-    if (leakZonesActive.length > 0) { if (autoEmailEnabled && Date.now() > (window.silenceUntil || 0)) showFaultEscalation(); }
   }
-  function logIncident(type, msg, time, zone) { incidentLog.unshift({ type, msg, time, zone }); if (incidentLog.length > 70) incidentLog.pop(); }
-  function showFaultEscalation() { if (document.getElementById('faultModal').classList.contains('show')) return; let zonesStr = leakZonesActive.map(z => `Zone ${z}`).join(', '); let preview = `TO: fault@jwater.co.za\nSUBJECT: URGENT LEAK: ${zonesStr}\n\nDetected at ${new Date().toLocaleString()}\nZones: ${zonesStr}\nOperator: ${currentUser?.name || 'System'}\n--- Auto-generated by Aqua Logic ---`; document.getElementById('faultEmailPreview').innerText = preview; document.getElementById('faultModal').classList.add('show'); }
-  function closeFaultModal() { document.getElementById('faultModal').classList.remove('show'); }
-  function sendFaultNow() { let preview = document.getElementById('faultEmailPreview').innerText; let subject = encodeURIComponent('[URGENT] Water Leak Alert'); let body = encodeURIComponent(preview); window.location.href = `mailto:fault@jwater.co.za?subject=${subject}&body=${body}`; lastEmailTime = Date.now(); logIncident('email', `Fault report dispatched for ${leakZonesActive.join(',')}`, new Date().toLocaleTimeString(), 'System'); closeFaultModal(); toast('📨 Report', 'Opened email client for Joburg Water'); }
-  function acknowledgeZone(zone) { toast('Acknowledged', `Zone ${zone} alert noted`); if (forcedLeakZone === zone) forcedLeakZone = null; refreshDashboard(); }
-  function isolateZoneSim(zone) { toast('Isolate', `Simulated isolation for Zone ${zone}`); logIncident('system', `Operator isolated Zone ${zone} remotely`, new Date().toLocaleTimeString(), zone); }
-  function simulateRandomLeak() { let zones = ['A', 'B', 'C']; forcedLeakZone = zones[Math.floor(Math.random() * 3)]; toast('⚠️ Demo Leak', `Leak simulated in Zone ${forcedLeakZone}`); refreshDashboard(); }
-  function openHistoryModal() { let historyDiv = document.getElementById('historyLogList'); historyDiv.innerHTML = incidentLog.slice(0, 28).map(e => `<div style="padding:8px;border-bottom:1px solid #eef;"><strong>${e.type.toUpperCase()}</strong> ${e.msg}<br><small>${e.time} · ${e.zone || 'System'}</small></div>`).join(''); document.getElementById('historyModal').classList.add('show'); }
-  function closeHistoryModal() { document.getElementById('historyModal').classList.remove('show'); }
-  function refreshDash() { refreshDashboard(); toast('Refresh', 'Sensor data updated'); }
-  function logout() { currentUser = null; document.getElementById('dashboard').style.display = 'none'; document.getElementById('publicSite').style.display = 'block'; toast('Logged out', 'See you soon'); }
+}
 
-  window.acknowledgeZone = acknowledgeZone; window.isolateZoneSim = isolateZoneSim; window.simulateRandomLeak = simulateRandomLeak; window.refreshDash = refreshDash; window.logout = logout; window.openHistoryModal = openHistoryModal; window.closeHistoryModal = closeHistoryModal; window.sendFaultNow = sendFaultNow; window.closeFaultModal = closeFaultModal; window.openAuth = openAuth; window.closeAuth = closeAuth; window.doLogin = doLogin; window.doRegister = doRegister; window.togglePass = togglePass; window.verifyEmailStep = verifyEmailStep; window.verifySmsStep = verifySmsStep;
+function toggleEye(inputId, btn){
+  const inp = $(inputId);
+  if(!inp) return;
+  const isPass = inp.type === 'password';
+  inp.type = isPass ? 'text' : 'password';
+  btn.innerHTML = isPass
+    ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
+    : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+}
+
+function openAuth(mode='login'){ APP.authStep=mode; renderAuth(); $('authOverlay').classList.add('show'); $('authOverlay').setAttribute('aria-hidden','false'); }
+function closeAuth(){ $('authOverlay').classList.remove('show'); $('authOverlay').setAttribute('aria-hidden','true'); }
+function renderAuth(){
+  const c=$('authContent'), s=APP.authStep;
+  if(s==='login') c.innerHTML=loginHTML();
+  else if(s==='register') c.innerHTML=registerHTML();
+  else if(s==='verifyEmail') c.innerHTML=verifyEmailHTML();
+  else if(s==='verifySms') c.innerHTML=verifySmsHTML();
+  if(s==='register') initRegisterForm();
+  if(s.startsWith('verify')) setupOtpInputs();
+}
+
+function loginHTML(){ return `
+  <div style="font-family:var(--font-h);font-size:1.25rem;font-weight:800;margin-bottom:6px">Sign In</div>
+  <div style="color:#245;opacity:.85;margin-bottom:14px">Access your water monitoring dashboard</div>
+  <div style="display:grid;gap:8px">
+    <label style="font-size:.82rem">Email</label>
+    <input id="li-email" type="email" placeholder="you@domain.co.za" style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"/>
+    <label style="font-size:.82rem">Password</label>
+    <div class="pw-wrap">
+      <input id="li-pass" type="password" placeholder="••••••"/>
+      <button type="button" class="pw-toggle" onclick="toggleEye('li-pass',this)" title="Show/hide password">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="ctrl" onclick="doLogin()">Login</button>
+      <button class="ctrl" onclick="APP.authStep='register';renderAuth()">Register</button>
+    </div>
+    <div style="font-size:.82rem;color:#3a6a7a;margin-top:6px">Demo: use <strong>demo@aqua.co.za</strong> / <strong>demo123</strong></div>
+  </div>`;}
+
+function registerHTML(){ return `
+  <div style="font-family:var(--font-h);font-size:1.2rem;font-weight:800;margin-bottom:6px">Create Account</div>
+  <div style="color:#245;opacity:.85;margin-bottom:10px">Join the national water intelligence network</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <input id="rg-name" placeholder="First name" style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"/>
+    <input id="rg-surname" placeholder="Surname" style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"/>
+  </div>
+  <div style="margin-top:8px"><input id="rg-email" type="email" placeholder="you@domain.co.za" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e6f6fb"/></div>
+  <div style="margin-top:8px"><input id="rg-phone" type="tel" placeholder="+27 11 000 0000" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e6f6fb"/></div>
+  <div style="margin-top:10px">
+    <label style="font-size:.82rem;font-weight:700;color:#245;display:block;margin-bottom:4px">Password</label>
+    <div class="pw-wrap">
+      <input id="rg-pass" type="password" placeholder="Create a strong password" oninput="updatePwFeedback(this.value,'pwStrBar','pwStrLbl','pwReqsList')"/>
+      <button type="button" class="pw-toggle" onclick="toggleEye('rg-pass',this)" title="Show/hide password">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+    <div class="pw-strength-bar" id="pwStrBar">
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="pw-strength-label" id="pwStrLbl"></div>
+    <div class="pw-reqs" id="pwReqsList">
+      ${PW_RULES.map(r=>`<div class="pw-req" data-rule="${r.id}"><div class="req-dot">✓</div><span>${r.label}</span></div>`).join('')}
+    </div>
+  </div>
+  <div style="margin-top:10px">
+    <label style="font-size:.82rem;font-weight:700;color:#245;display:block;margin-bottom:4px">Confirm Password</label>
+    <div class="pw-wrap">
+      <input id="rg-conf" type="password" placeholder="Repeat your password" oninput="checkConfirm()"/>
+      <button type="button" class="pw-toggle" onclick="toggleEye('rg-conf',this)" title="Show/hide password">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+    <div id="matchMsg" style="font-size:.76rem;margin-top:4px;height:14px;font-weight:700"></div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:14px">
+    <button class="ctrl" onclick="doRegister()">Next: Verify Email</button>
+    <button class="ctrl" onclick="APP.authStep='login';renderAuth()">Back</button>
+  </div>`;}
+
+function initRegisterForm(){}
+
+function checkConfirm(){
+  const pw = ($('rg-pass')||{}).value || '';
+  const cf = ($('rg-conf')||{}).value || '';
+  const msg = $('matchMsg');
+  if(!msg) return;
+  if(cf.length === 0){ msg.textContent=''; return; }
+  if(pw === cf){ msg.textContent='✓ Passwords match'; msg.style.color='#00b86b'; }
+  else { msg.textContent='✗ Passwords do not match'; msg.style.color='#f44336'; }
+}
+
+function verifyEmailHTML(){ return `
+  <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+    <div style="font-size:1rem;font-weight:800">Verify Email</div>
+    <div style="color:#3a6a7a">Code sent to <strong>${APP.pendingReg?.email||'—'}</strong></div>
+    <div style="background:rgba(0,172,193,0.06);padding:8px;border-radius:8px;font-family:var(--font-m)">Check your email for the OTP</div>
+    <div id="otpEmail" style="display:flex;gap:8px;margin-top:8px">${Array(6).fill(0).map(()=>'<input maxlength="1" style="width:40px;padding:10px;text-align:center;border-radius:6px;border:1px solid #e6f6fb">').join('')}</div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="ctrl" onclick="verifyEmail()">Verify</button>
+      <button class="ctrl" onclick="resendOtp('email')">Resend</button>
+    </div>
+  </div>`;}
+
+function verifySmsHTML(){ return `
+  <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+    <div style="font-size:1rem;font-weight:800">Verify Phone</div>
+    <div style="color:#3a6a7a">SMS sent to <strong>${APP.pendingReg?.phone||'—'}</strong></div>
+    <div style="background:rgba(0,172,193,0.06);padding:8px;border-radius:8px;font-family:var(--font-m)">Demo OTP: <strong>${APP.smsOTP}</strong></div>
+    <div id="otpSms" style="display:flex;gap:8px;margin-top:8px">${Array(6).fill(0).map(()=>'<input maxlength="1" style="width:40px;padding:10px;text-align:center;border-radius:6px;border:1px solid #e6f6fb">').join('')}</div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="ctrl" onclick="verifySms()">Complete</button>
+      <button class="ctrl" onclick="resendOtp('sms')">Resend</button>
+    </div>
+  </div>`;}
+
+function setupOtpInputs(){
+  const inputs=document.querySelectorAll('.auth-panel input[maxlength="1"]');
+  inputs.forEach((inp,i)=>{
+    inp.addEventListener('input',()=>{ inp.value=inp.value.replace(/\D/g,''); if(inp.value && inputs[i+1]) inputs[i+1].focus(); });
+    inp.addEventListener('keydown',e=>{ if(e.key==='Backspace' && !inp.value && inputs[i-1]) inputs[i-1].focus(); });
+  });
+}
+function getOTP(selector){ return Array.from(document.querySelectorAll(selector+' input')).map(i=>i.value).join(''); }
+function genOTP(){ return String(Math.floor(100000+Math.random()*900000)); }
+function resendOtp(type){ if(type==='email') APP.emailOTP=genOTP(); else APP.smsOTP=genOTP(); renderAuth(); showToast('🔄 Code Resent',`A new ${type} OTP was generated (demo)`); }
+
+function doRegister(){
+  const name=($('rg-name')||{}).value?.trim();
+  const surname=($('rg-surname')||{}).value?.trim();
+  const email=($('rg-email')||{}).value?.trim();
+  const phone=($('rg-phone')||{}).value?.trim();
+  const pass=($('rg-pass')||{}).value;
+  const conf=($('rg-conf')||{}).value;
+  if(!name||!email||!phone||!pass){ showToast('⚠ Missing fields','Please fill all required fields'); return; }
+  if(pass.length<8){ showToast('⚠ Weak password','Password must be at least 8 characters'); return; }
+  if(getStrength(pass)<3){ showToast('⚠ Weak password','Please meet at least 4 password requirements'); return; }
+  if(pass!==conf){ showToast('⚠ Passwords','Passwords do not match'); return; }
+  APP.pendingReg={name,surname,email,phone,pass};
+  APP.emailOTP=genOTP();
+  emailjs.send("service_36h95pb","template_len1b5s",{to_email:APP.pendingReg.email,otp_code:APP.emailOTP})
+    .then(()=>showToast("📧 OTP Sent","Check your email"),()=>showToast("❌ Error","Email failed to send"));
+  APP.authStep='verifyEmail'; renderAuth();
+  showToast('📧 OTP Sent','A demo OTP was generated and shown in the UI');
+}
+function verifyEmail(){
+  const e=getOTP('#otpEmail');
+  if(e.length<6){ showToast('⚠ Incomplete','Enter the full 6-digit code'); return; }
+  if(e!==APP.emailOTP){ showToast('❌ Wrong code','Email OTP does not match'); return; }
+  APP.smsOTP=genOTP(); APP.authStep='verifySms'; renderAuth();
+  showToast('📲 SMS Sent','Demo SMS code generated');
+}
+function verifySms(){
+  const e=getOTP('#otpSms');
+  if(e.length<6){ showToast('⚠ Incomplete','Enter the full 6-digit code'); return; }
+  if(e!==APP.smsOTP){ showToast('❌ Wrong code','SMS OTP does not match'); return; }
+  const u=APP.pendingReg; localStorage.setItem('aq_user',JSON.stringify(u)); APP.user=u;
+  closeAuth(); showToast('🎉 Account Created',`Welcome, ${u.name}!`);
+  fireConfetti(); setTimeout(()=>launchDashboard(),700);
+}
+function doLogin(){
+  const email=($('li-email')||{}).value?.trim(); const pass=($('li-pass')||{}).value;
+  if(!email||!pass){ showToast('⚠ Missing','Enter email and password'); return; }
+  const stored=localStorage.getItem('aq_user');
+  if(stored){ const u=JSON.parse(stored); if(u.email===email && u.pass===pass){ APP.user=u; closeAuth(); launchDashboard(); return; } }
+  if(email==='demo@aqua.co.za' && pass==='demo123'){ APP.user={name:'Demo',surname:'User',email,phone:'+27110000000'}; closeAuth(); launchDashboard(); return; }
+  showToast('❌ Login Failed','Invalid credentials (demo only)');
+}
+
+function launchDashboard(){
+  $('publicSite').style.display='none'; $('dashboard').style.display='block'; $('dashboard').setAttribute('aria-hidden','false');
+  $('dashUserName').textContent=APP.user?.name||'Operator';
+  $('dashWelcome').textContent=`Welcome back, ${APP.user?.name||'Operator'} 👋`;
+  updateTime(); seedHistory(); loadDashboard(); bindControls();
+}
+function logout(){
+  APP.user=null; APP.incidentLog=[]; APP.leakZones=[];
+  $('dashboard').style.display='none'; $('publicSite').style.display='block';
+  $('dashboard').setAttribute('aria-hidden','true'); showToast('👋 Logged Out','You have been signed out.');
+}
+function updateTime(){ $('dashTime').textContent='Last refreshed: '+new Date().toLocaleString('en-ZA',{dateStyle:'medium',timeStyle:'short'}); }
+function loadDashboard(){
+  updateTime();
+  const lvl=Math.floor(Math.random()*55)+35;
+  setEl('levelVal',lvl); aw('levelBar',lvl);
+  $('tankWater').style.height=lvl+'%'; $('tankPctLbl').textContent=lvl+'%';
+  const infl=(Math.random()*30+10).toFixed(1), outfl=(Math.random()*25+8).toFixed(1), tmp=(Math.random()*8+18).toFixed(1);
+  setEl('inflowVal',infl+' L/s'); setEl('outflowVal',outfl+' L/s'); setEl('tempVal',tmp+'°C');
+  renderZones();
+}
+function refreshDash(){ showToast('🔄 Refreshing','Reading live sensor data…'); setTimeout(()=>{ loadDashboard(); showToast('✅ Updated','Sensor data refreshed.'); },700); }
+function renderZones(){
+  const ZONES=[{id:'A',name:'Zone Alpha',desc:'Northern Sector'},{id:'B',name:'Zone Beta',desc:'Central Pipeline'},{id:'C',name:'Zone Charlie',desc:'Southern Grid'}];
+  APP.leakZones=[]; let hasLeak=false;
+  const grid=$('zonesGrid'); grid.innerHTML='';
+  ZONES.forEach(z=>{
+    const preLeak=APP.forcedLeakZone===z.id;
+    const leak=preLeak||(Math.random()<0.18);
+    const offline=!leak&&Math.random()<0.04;
+    if(leak){ APP.leakZones.push(z.id); hasLeak=true; }
+    const flow=(Math.random()*20+5).toFixed(1), press=(Math.random()*3+1.5).toFixed(2);
+    let sdot='normal',slbl='Sensor Active',ssub='Normal — No water detected';
+    if(leak){ sdot='leak'; slbl='LEAK DETECTED'; ssub='Unexpected flow / pressure drop'; }
+    if(offline){ sdot='offline'; slbl='Sensor Offline'; ssub='No signal received'; }
+    const spark=generateSparkline();
+    const card=document.createElement('div');
+    card.className='zone-card'+(leak?' leak-zone':'');
+    card.innerHTML=`<div class="zone-id">Sensor Zone ${z.id}</div><div class="zone-name-big">${z.name}</div><div style="font-size:.78rem;color:#b0d8f0;margin-bottom:10px">${z.desc}</div><div class="sensor-status"><div class="sensor-dot ${sdot}"></div><div style="flex:1"><strong style="display:block">${slbl}</strong><span style="font-size:.78rem;color:#cce8f8">${ssub}</span></div></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><div style="font-size:.82rem;color:#e0f4ff"><div style="font-size:.75rem;color:#7dd8f0">Flow</div><strong>${flow} L/s</strong></div><div style="font-size:.82rem;color:#e0f4ff"><div style="font-size:.75rem;color:#7dd8f0">Pressure</div><strong>${press} bar</strong></div><div style="font-size:.82rem;color:#e0f4ff"><div style="font-size:.75rem;color:#7dd8f0">Signal</div><strong>${offline?'Offline':'Live'}</strong></div></div><div style="display:flex;gap:8px;align-items:center;margin-top:10px"><div style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);padding:6px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:.8rem">${leak?'⚠ LEAK DETECTED':'✓ NORMAL — NO WATER'}</div><div class="spark">${spark}</div><div style="margin-left:auto;display:flex;gap:8px"><button class="ctrl" onclick="acknowledge('${z.id}')">Acknowledge</button><button class="ctrl" onclick="isolateZone('${z.id}')">Isolate</button></div></div>`;
+    grid.appendChild(card);
+    const t=new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'});
+    if(leak) logEvent('leak',`Zone ${z.id}: Leak detected — abnormal pressure (${press} bar)`,t,`Zone ${z.id}`);
+    else if(offline) logEvent('system',`Zone ${z.id}: Sensor offline — no signal`,t,`Zone ${z.id}`);
+    else logEvent('normal',`Zone ${z.id}: Normal — no water detected (${flow} L/s)`,t,`Zone ${z.id}`);
+  });
+  const dot=$('sysStatusDot'), txt=$('sysStatusTxt');
+  if(hasLeak){ dot.className='status-dot red'; txt.textContent=`⚠ ${APP.leakZones.length} LEAK${APP.leakZones.length>1?'S':''} DETECTED`; setTimeout(()=>openFaultModal(),650); if(APP.autoEmail && Date.now()>APP.silenceUntil) attemptAutoEscalation(); }
+  else { dot.className='status-dot green'; txt.textContent='ALL SYSTEMS NOMINAL'; }
+}
+function seedHistory(){
+  APP.incidentLog=[
+    {type:'normal',msg:'Zone A: Sensor initialised — Normal, no water detected',time:'06:00',zone:'Zone A'},
+    {type:'leak',msg:'Zone B: Pressure drop detected (1.2 bar) — possible burst',time:'06:47',zone:'Zone B'},
+    {type:'email',msg:'Fault report dispatched to fault@jwater.co.za',time:'06:48',zone:'System'},
+    {type:'normal',msg:'Zone C: Active — no water detected, normal readings',time:'07:00',zone:'Zone C'},
+    {type:'system',msg:'Zone B: Joburg Water maintenance team dispatched',time:'07:30',zone:'Zone B'},
+    {type:'normal',msg:'Zone B: Pressure restored — sensor back to normal',time:'09:15',zone:'Zone B'}
+  ];
+  renderHistoryBody('all');
+}
+function logEvent(type,msg,time,zone){ APP.incidentLog.unshift({type,msg,time,zone}); if(APP.incidentLog.length>120) APP.incidentLog.pop(); renderHistoryBody(APP.activeFilter||'all'); }
+function openHistory(){ renderHistoryBody(APP.activeFilter||'all'); $('historyModal').classList.add('show'); $('historyModal').setAttribute('aria-hidden','false'); }
+function closeHistory(){ $('historyModal').classList.remove('show'); $('historyModal').setAttribute('aria-hidden','true'); }
+function filterHistory(f,btn){ APP.activeFilter=f; Array.from(document.querySelectorAll('#historyModal .ctrl')).forEach(b=>b.classList.remove('active')); renderHistoryBody(f); }
+function renderHistoryBody(filter){
+  const icons={leak:'🔴',normal:'🟢',email:'📧',system:'⚙️'};
+  const filtered=(!filter||filter==='all')?APP.incidentLog:APP.incidentLog.filter(e=>e.type===filter);
+  const body=$('historyBody');
+  body.innerHTML=filtered.length?filtered.map(e=>`<div class="h-item"><div class="h-item-icon" style="background:${e.type==='leak'?'#ffecec':e.type==='normal'?'#f0fff4':'#f0fbff'}">${icons[e.type]||'ℹ️'}</div><div><div class="h-item-title">${e.msg}</div><div class="h-item-meta"><span>🕐 ${e.time}</span><span>📍 ${e.zone||'System'}</span></div></div></div>`).join(''):`<div style="text-align:center;padding:30px;color:#6a9ab8;font-size:.95rem">No ${filter} events found</div>`;
+}
+function openFaultModal(){
+  if(APP.silenced) return;
+  const zones=APP.leakZones.length?APP.leakZones.map(z=>`Zone ${z}`).join(', '):'—';
+  const now=new Date().toLocaleString('en-ZA');
+  const u=APP.user||{};
+  const body=`TO: fault@jwater.co.za\nFROM: ${u.email||'system@aqualogic.co.za'}\nSUBJECT: [URGENT] Leak Detected — ${zones}\n\nDear Joburg Water Fault Response Team,\n\nAn automated fault has been detected by the Aqua Logic Smart Water Monitoring System.\n\nINCIDENT REPORT\nDate/Time  : ${now}\nAlert Level: HIGH PRIORITY\nZones      : ${zones}\nOperator   : ${u.name||'System'} ${u.surname||''}\nContact    : ${u.phone||'N/A'}\n\nANOMALY DETAILS:\n${APP.leakZones.map(z=>` • Zone ${z}: Pressure drop / unexpected flow detected`).join('\n')}\n\nPlease dispatch a response team immediately.\n\n— Aqua Logic Demo`;
+  $('faultEmailBody').textContent=body;
+  $('faultModal').classList.add('show'); $('faultModal').setAttribute('aria-hidden','false');
+}
+function closeFault(){ $('faultModal').classList.remove('show'); $('faultModal').setAttribute('aria-hidden','true'); }
+function sendFaultEmail(){
+  if(APP.lastEmailSentAt && (Date.now()-APP.lastEmailSentAt<60_000)){ showToast('⚠️ Already Sent','A report was recently sent. Avoid duplicate emails.'); return; }
+  const zones=APP.leakZones.length?APP.leakZones.map(z=>`Zone ${z}`).join(', '):'—';
+  const sub=encodeURIComponent(`[URGENT] Water Leak — ${zones} — Aqua Logic`);
+  const body=encodeURIComponent($('faultEmailBody').textContent);
+  window.location.href=`mailto:fault@jwater.co.za?subject=${sub}&body=${body}`;
+  APP.lastEmailSentAt=Date.now();
+  logEvent('email',`Fault report sent to fault@jwater.co.za for: ${zones}`,new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),'System');
+  closeFault(); showToast('📧 Report Sent','Fault dispatched to Joburg Water (via mail client).');
+}
+function attemptAutoEscalation(){
+  const key=APP.leakZones.join(','); if(!key) return;
+  if(APP.escalationsSent[key] && (Date.now()-APP.escalationsSent[key]<120_000)) return;
+  openFaultModal(); APP.escalationsSent[key]=Date.now(); $('sendFaultBtn').focus();
+  showToast('🛟 Auto-escalation prepared',`Prepared escalation for ${APP.leakZones.join(', ')}`);
+}
+function acknowledge(zone){
+  logEvent('system',`Zone ${zone}: Incident acknowledged by operator`,new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),`Zone ${zone}`);
+  showToast('📝 Acknowledged',`Zone ${zone} acknowledged`);
+  if(APP.forcedLeakZone===zone) APP.forcedLeakZone=null;
+  renderZones();
+}
+function isolateZone(zone){ logEvent('system',`Zone ${zone}: Remote isolate command simulated`,new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),`Zone ${zone}`); showToast('🔒 Isolate',`Simulated isolation for ${zone}`); }
+function bindControls(){
+  $('toggleAutoEmail').onclick=()=>{ APP.autoEmail=!APP.autoEmail; $('toggleAutoEmail').textContent=`Auto-email: ${APP.autoEmail?'ON':'OFF'}`; $('autoEmailStatus').textContent=APP.autoEmail?'Escalation To: fault@jwater.co.za':'Auto-escalation: OFF'; showToast('Settings',`Auto-email ${APP.autoEmail?'enabled':'disabled'}`); };
+  $('silenceAlerts').onclick=()=>{ APP.silenceUntil=Date.now()+(5*60*1000); showToast('🔕 Alerts silenced','Alerts silenced for 5 minutes'); };
+}
+function simulateLeak(zoneId){ APP.forcedLeakZone=zoneId||(['A','B','C'])[Math.floor(Math.random()*3)]; showToast('⚠ Demo Leak','A demo leak has been triggered: '+APP.forcedLeakZone); renderZones(); }
+function setEl(id,val){ const el=$(id); if(el) el.textContent=val; }
+function aw(id,pct){ setTimeout(()=>{ const el=$(id); if(el) el.style.width=Math.min(100,Math.max(0,Number(pct)))+'%'; },30); }
+function generateSparkline(){
+  const pts=Array.from({length:8},()=>Math.round(Math.random()*12+4));
+  const max=Math.max(...pts), min=Math.min(...pts);
+  const w=56, h=18, step=w/(pts.length-1);
+  const path=pts.map((p,i)=>`${i===0?'M':'L'} ${i*step} ${(h-2)-((p-min)/(max-min||1))*(h-6)}`).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg"><path d="${path}" fill="none" stroke="#0077a8" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function fireConfetti(){
+  const colors=['#ff7a7a','#7af5ff','#ffd47a','#7affb3','#a27aff','#ffb3f0','#7ac8ff'];
+  for(let i=0;i<18;i++){
+    const el=document.createElement('div');
+    const color=colors[Math.floor(Math.random()*colors.length)];
+    el.style.cssText=`position:fixed;left:${50+(Math.random()-.5)*40}%;top:${40+Math.random()*20}%;width:9px;height:14px;background:${color};border-radius:3px;pointer-events:none;z-index:9999;opacity:1;transition:all 1.2s ease-out;transform:rotate(${Math.random()*360}deg);`;
+    document.body.appendChild(el);
+    setTimeout(()=>{
+      el.style.top=(parseFloat(el.style.top)+30+Math.random()*30)+'%';
+      el.style.opacity='0';
+      el.style.transform=`rotate(${Math.random()*720}deg) scale(0.3)`;
+    },30);
+    setTimeout(()=>el.remove(),1400);
+  }
+}
 </script>
 </body>
 </html>
