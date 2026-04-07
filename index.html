@@ -62,6 +62,7 @@ const auth = firebase.auth();
 <div class="auth-overlay" id="authOverlay" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="auth-panel" id="authPanel">
     <button class="close-btn" onclick="closeAuth()">✕</button>
+    <div id="authContent"></div>
     <div id="recaptcha-container"></div>
   </div>
 </div>
@@ -217,8 +218,7 @@ function toggleFaq(i,btn){
   if(!open) el.classList.add('open');
 }
 
-const APP={user:null,pendingReg:null,emailOTP:'',smsOTP:'',authStep:'login',incidentLog:[],leakZones:[],autoEmail:true,silenceUntil:0,lastEmailSentAt:0,escalationsSent:{}};
-
+const APP={user:null,pendingReg:null,emailOTP:'',authStep:'login',incidentLog:[],leakZones:[],autoEmail:true,silenceUntil:0,lastEmailSentAt:0,escalationsSent:{}};
 const PW_RULES = [
   { id:'len',   label:'8+ characters',      test: p => p.length >= 8 },
   { id:'upper', label:'Uppercase letter',   test: p => /[A-Z]/.test(p) },
@@ -365,7 +365,7 @@ function verifySmsHTML(){ return `
   <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
     <div style="font-size:1rem;font-weight:800">Verify Phone</div>
     <div style="color:#3a6a7a">SMS sent to <strong>${APP.pendingReg?.phone||'—'}</strong></div>
-    <div style="background:rgba(0,172,193,0.06);padding:8px;border-radius:8px;font-family:var(--font-m)">Demo OTP: <strong>${APP.smsOTP}</strong></div>
+    <div style="background:rgba(0,172,193,0.06);padding:8px;border-radius:8px;font-family:var(--font-m)">Enter the 6-digit code sent to your phone</div>
     <div id="otpSms" style="display:flex;gap:8px;margin-top:8px">${Array(6).fill(0).map(()=>'<input maxlength="1" style="width:40px;padding:10px;text-align:center;border-radius:6px;border:1px solid #e6f6fb">').join('')}</div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="ctrl" onclick="verifySms()">Complete</button>
@@ -381,8 +381,39 @@ function setupOtpInputs(){
   });
 }
 function getOTP(selector){ return Array.from(document.querySelectorAll(selector+' input')).map(i=>i.value).join(''); }
-function genOTP(){ return String(Math.floor(100000+Math.random()*900000)); }
-function resendOtp(type){ if(type==='email') APP.emailOTP=genOTP(); else APP.smsOTP=genOTP(); renderAuth(); showToast('🔄 Code Resent',`A new ${type} OTP was generated (demo)`); }
+
+function genOTP(){
+  return String(Math.floor(100000 + Math.random() * 900000));
+}  
+   
+function resendOtp(type){
+  if(type === 'email'){
+    APP.emailOTP = genOTP();
+    emailjs.send("service_36h95pb","template_len1b5s",{
+      to_email: APP.pendingReg.email,
+      otp_code: APP.emailOTP
+    })
+    .then(() => showToast('📧 OTP Resent','New code sent to your email'))
+    .catch(() => showToast('❌ Error','Failed to resend email OTP'));
+    return;
+  }
+
+  if(type === 'sms'){
+    const phoneNumber = APP.pendingReg.phone;
+
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container');
+
+    auth.signInWithPhoneNumber(phoneNumber, window.recaptchaVerifier)
+      .then(function (confirmationResult) {
+        window.confirmationResult = confirmationResult;
+        showToast('📲 OTP Resent','New code sent to your phone');
+      })
+      .catch(function (error) {
+        console.error(error);
+        showToast('❌ Error','Failed to resend OTP');
+      });
+  }
+}
 
 function doRegister(){
   const name=($('rg-name')||{}).value?.trim();
@@ -406,16 +437,44 @@ function verifyEmail(){
   const e=getOTP('#otpEmail');
   if(e.length<6){ showToast('⚠ Incomplete','Enter the full 6-digit code'); return; }
   if(e!==APP.emailOTP){ showToast('❌ Wrong code','Email OTP does not match'); return; }
-  APP.smsOTP=genOTP(); APP.authStep='verifySms'; renderAuth();
-  showToast('📲 SMS Sent','Demo SMS code generated');
+  const phoneNumber = APP.pendingReg.phone;
+
+  window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container');
+
+  auth.signInWithPhoneNumber(phoneNumber, window.recaptchaVerifier)
+    .then(function (confirmationResult) {
+      window.confirmationResult = confirmationResult;
+      APP.authStep = 'verifySms';
+      renderAuth();
+      showToast('📲 SMS Sent','OTP sent to your phone');
+    })
+    .catch(function (error) {
+      console.error(error);
+      showToast('❌ Error','Failed to send SMS');
+    });
 }
 function verifySms(){
-  const e=getOTP('#otpSms');
-  if(e.length<6){ showToast('⚠ Incomplete','Enter the full 6-digit code'); return; }
-  if(e!==APP.smsOTP){ showToast('❌ Wrong code','SMS OTP does not match'); return; }
-  const u=APP.pendingReg; localStorage.setItem('aq_user',JSON.stringify(u)); APP.user=u;
-  closeAuth(); showToast('🎉 Account Created',`Welcome, ${u.name}!`);
-  fireConfetti(); setTimeout(()=>launchDashboard(),700);
+  const e = getOTP('#otpSms');
+
+  if(e.length < 6){
+    showToast('⚠ Incomplete','Enter the full 6-digit code');
+    return;
+  }
+
+  confirmationResult.confirm(e)
+    .then(function (result) {
+      const u = APP.pendingReg;
+      localStorage.setItem('aq_user', JSON.stringify(u));
+      APP.user = u;
+
+      closeAuth();
+      showToast('🎉 Account Created', `Welcome, ${u.name}!`);
+      fireConfetti();
+      setTimeout(()=>launchDashboard(),700);
+    })
+    .catch(function (error) {
+      showToast('❌ Wrong code','Invalid OTP');
+    });
 }
 function doLogin(){
   const email=($('li-email')||{}).value?.trim(); const pass=($('li-pass')||{}).value;
