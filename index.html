@@ -785,7 +785,7 @@
         Aqua Logic
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button class="ctrl" onclick="document.getElementById('faq-section').scrollIntoView({behavior:'smooth'})">FAQ</button>
+  
         <button class="ctrl" onclick="openAuth('login')">Login</button>
         <button class="ctrl" onclick="openAuth('register')">Register</button>
       </div>
@@ -886,8 +886,6 @@
                 </svg>
               </div>
               <div class="controls" style="margin-top:12px">
-                <button class="ctrl" id="toggleAutoEmail">Auto-email: ON</button>
-                <button class="ctrl" id="silenceAlerts">Silence Alerts</button>
                 <button class="ctrl" onclick="openHistory()">View History</button>
                 <button class="ctrl" onclick="simulateLeak()">Trigger Leak</button>
               </div>
@@ -1554,10 +1552,8 @@
             <div style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);padding:6px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:.8rem">
               ${leak ? '⚠ LEAK DETECTED' : '✓ NORMAL'}
             </div>
-            <div class="spark">${spark}</div>
             <div style="margin-left:auto;display:flex;gap:8px">
               <button class="ctrl" onclick="acknowledge('${z.id}')">Acknowledge</button>
-              <button class="ctrl" onclick="isolateZone('${z.id}')">Isolate</button>
             </div>
           </div>
         `;
