@@ -1006,15 +1006,14 @@
     function setupRecaptcha(){
       const container = $('recaptcha-container');
       if(!container) return null;
-
-      if(recaptchaVerifier){
-        try { recaptchaVerifier.clear(); } catch(e){}
-        recaptchaVerifier = null;
-        container.innerHTML = '';
-      }
+  
+       if(recaptchaVerifier){
+          return recaptchaVerifier;
+        }
 
       recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
         size: 'normal',
+        
         callback: function () {
           console.log('reCAPTCHA solved');
         },
@@ -1023,7 +1022,6 @@
         }
       });
 
-      recaptchaVerifier.render().catch(err => console.error(err));
       return recaptchaVerifier;
     }
 
