@@ -1350,44 +1350,31 @@
     }
 
     function verifyEmail(){
-          const u = APP.pendingReg;
-    
-    localStorage.setItem('aq_user', JSON.stringify(u));
-    
-    APP.pendingLogin = u;
-    
-    APP.emailOTP = genOTP();
-    
-    emailjs.send(
-      "service_36h95pb",
-      "template_len1b5s",
-      {
-        to_email: u.email,
-        otp_code: APP.emailOTP
+      const code = getOTP('#otpEmail');
+
+      if(code.length < 6){
+        showToast('⚠ Incomplete code', 'Enter the full 6 digit email code');
+        return;
       }
-    )
-    .then(() => {
-    
-      APP.authStep = 'verifyLoginOtp';
-    
+
+      if(code !== APP.emailOTP){
+        showToast('❌ Wrong email code', 'The email OTP does not match');
+        return;
+      }
+
+       const u = APP.pendingReg;
+      
+      localStorage.setItem('aq_user', JSON.stringify(u));
+      
+      showToast(
+        '✅ Registration complete',
+        'Please login with your new account'
+      );
+      
+      APP.authStep = 'login';
+      
       renderAuth();
-    
-      showToast(
-        '📧 Login OTP sent',
-        'Enter the verification code'
-      );
-    
-    })
-    .catch((err) => {
-    
-      console.error(err);
-    
-      showToast(
-        '❌ OTP send failed',
-        'Could not send verification code'
-      );
-    
-    });    
+    }
 
     function sendPhoneOtp(){
       if(!APP.pendingReg?.phone){
