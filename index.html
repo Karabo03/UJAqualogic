@@ -1146,12 +1146,33 @@
             <button type="button" class="pw-toggle" onclick="toggleEye('li-pass',this)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
+            
+          <label style="font-size:.82rem">OTP Code</label>
+        
+        <input id="li-otp"
+               type="text"
+               placeholder="Enter email OTP"
+               style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"/>
           </div>
 
           <div style="display:flex;gap:8px;margin-top:4px">
-            <button class="ctrl" onclick="doLogin()">Login</button>
-            <button class="ctrl" onclick="APP.authStep='register';renderAuth()">Register</button>
-          </div>
+
+        <button class="ctrl"
+                onclick="sendLoginOtp()">
+          Send OTP
+        </button>
+      
+        <button class="ctrl"
+                onclick="doLogin()">
+          Login
+        </button>
+      
+        <button class="ctrl"
+                onclick="APP.authStep='register';renderAuth()">
+          Register
+        </button>
+      
+      </div>          
 
           <div style="font-size:.82rem;color:#3a6a7a;margin-top:6px">
             Demo: use <strong>demo@aqua.co.za</strong> / <strong>demo123</strong>
@@ -1396,38 +1417,149 @@
         });
     }
 
-   
-
-    function doLogin(){
-      const email = ($('li-email')||{}).value?.trim();
-      const pass = ($('li-pass')||{}).value;
-
-      if(!email || !pass){
-        showToast('⚠ Missing details', 'Enter email and password');
-        return;
-      }
-
-      const stored = localStorage.getItem('aq_user');
-      if(stored){
-        const u = JSON.parse(stored);
-        if(u.email === email && u.pass === pass){
-          APP.user = u;
-          closeAuth();
-          launchDashboard();
+     function doLogin(){
+  
+    const email = ($('li-email')||{}).value?.trim();
+    const pass = ($('li-pass')||{}).value;
+    const otp = ($('li-otp')||{}).value?.trim();
+  
+    if(!email || !pass || !otp){
+  
+      showToast(
+        '⚠ Missing details',
+        'Enter email, password and OTP'
+      );
+  
+      return;
+    }
+  
+    const stored = localStorage.getItem('aq_user');
+  
+    if(stored){
+  
+      const u = JSON.parse(stored);
+  
+      if(u.email === email && u.pass === pass){
+  
+        if(otp !== APP.emailOTP){
+  
+          showToast(
+            '❌ Wrong OTP',
+            'Incorrect verification code'
+          );
+  
           return;
         }
-      }
-
-      if(email === 'demo@aqua.co.za' && pass === 'demo123'){
-        APP.user = {name:'Demo',surname:'User',email,phone:'+27110000000'};
+  
+        APP.user = u;
+  
         closeAuth();
+  
         launchDashboard();
+  
+        showToast(
+          '✅ Login successful',
+          `Welcome back, ${u.name}`
+        );
+  
         return;
       }
-
-      showToast('❌ Login failed', 'Invalid credentials');
     }
+  
+    if(email === 'demo@aqua.co.za' && pass === 'demo123'){
+  
+      APP.user = {
+        name:'Demo',
+        surname:'User',
+        email,
+        phone:'+27110000000'
+      };
+  
+      closeAuth();
+  
+      launchDashboard();
+  
+      return;
+    }
+  
+    showToast(
+      '❌ Login failed',
+      'Invalid credentials'
+    );
+  }
+  
 
+  function sendLoginOtp(){
+
+  const email = ($('li-email')||{}).value?.trim();
+  const pass = ($('li-pass')||{}).value;
+
+  if(!email || !pass){
+
+    showToast(
+      '⚠ Missing details',
+      'Enter email and password first'
+    );
+
+    return;
+  }
+
+  const stored = localStorage.getItem('aq_user');
+
+  if(!stored){
+
+    showToast(
+      '❌ Account not found',
+      'Please register first'
+    );
+
+    return;
+  }
+
+  const u = JSON.parse(stored);
+
+  if(u.email !== email || u.pass !== pass){
+
+    showToast(
+      '❌ Invalid credentials',
+      'Incorrect email or password'
+    );
+
+    return;
+  }
+
+  APP.pendingLogin = u;
+
+  APP.emailOTP = genOTP();
+
+  emailjs.send(
+    "service_36h95pb",
+    "template_len1b5s",
+    {
+      to_email: u.email,
+      otp_code: APP.emailOTP
+    }
+  )
+  .then(() => {
+
+    showToast(
+      '📧 OTP sent',
+      'Check your email'
+    );
+
+  })
+  .catch((err) => {
+
+    console.error(err);
+
+    showToast(
+      '❌ OTP failed',
+      'Could not send OTP'
+    );
+
+  });
+}
+    
     function launchDashboard(){
       $('publicSite').style.display = 'none';
       $('dashboard').style.display = 'block';
