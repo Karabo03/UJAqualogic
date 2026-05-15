@@ -1362,9 +1362,22 @@
         return;
       }
 
-      APP.authStep = 'verifyPhone';
-      renderAuth();
-      showToast('✅ Email verified', 'Now verify the phone number');
+     const u = APP.pendingReg;
+
+localStorage.setItem('aq_user', JSON.stringify(u));
+
+APP.user = u;
+
+closeAuth();
+
+showToast(
+  '🎉 Registration complete',
+  `Welcome, ${u.name}`
+);
+
+fireConfetti();
+
+setTimeout(()=>launchDashboard(),700);
     }
 
     function sendPhoneOtp(){
