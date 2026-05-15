@@ -1362,22 +1362,18 @@
         return;
       }
 
-     const u = APP.pendingReg;
-
-localStorage.setItem('aq_user', JSON.stringify(u));
-
-APP.user = u;
-
-closeAuth();
-
-showToast(
-  '🎉 Registration complete',
-  `Welcome, ${u.name}`
-);
-
-fireConfetti();
-
-setTimeout(()=>launchDashboard(),700);
+       const u = APP.pendingReg;
+      
+      localStorage.setItem('aq_user', JSON.stringify(u));
+      
+      showToast(
+        '✅ Registration complete',
+        'Please login with your new account'
+      );
+      
+      APP.authStep = 'login';
+      
+      renderAuth();
     }
 
     function sendPhoneOtp(){
