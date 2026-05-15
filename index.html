@@ -1387,34 +1387,7 @@
         });
     }
 
-    function verifyPhone(){
-      const code = getOTP('#otpSms');
-
-      if(code.length < 6){
-        showToast('⚠ Incomplete code', 'Enter the full 6 digit SMS code');
-        return;
-      }
-
-      if(!confirmationResult){
-        showToast('⚠ No SMS session', 'Click Send SMS Code first');
-        return;
-      }
-
-      confirmationResult.confirm(code)
-        .then(function(){
-          const u = APP.pendingReg;
-          localStorage.setItem('aq_user', JSON.stringify(u));
-          APP.user = u;
-          closeAuth();
-          showToast('🎉 Registration complete', `Welcome, ${u.name}`);
-          fireConfetti();
-          setTimeout(()=>launchDashboard(),700);
-        })
-        .catch(function(error){
-          console.error(error);
-          showToast('❌ Wrong SMS code', 'The phone OTP is invalid');
-        });
-    }
+   
 
     function doLogin(){
       const email = ($('li-email')||{}).value?.trim();
