@@ -769,7 +769,6 @@
       .zones-grid{grid-template-columns:1fr;}
     }
   </style>
-<base target="_blank">
 </head>
 <body>
   <div class="water-world" aria-hidden="true">
@@ -955,11 +954,6 @@
 
   <script>
     const $ = (id) => document.getElementById(id);
-
-
-    // ===== SUPABASE CONFIG =====
-    const SUPABASE_URL = "https://jhjwscyhatagcyxmkpkq.supabase.co";
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoandzY3loYXRhZ2N5eG1rcGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4Mjg3NjAsImV4cCI6MjA5NDQwNDc2MH0.b95kmUj5UXVynDjp0ulWUJYDaYKrrskdiDCI1UaA26U";
 
     const APP = {
       user: null,
@@ -1582,12 +1576,9 @@
       seedHistory();
       loadDashboard();
       bindControls();
+    }
 
-      // Auto-refresh from Supabase every 3 seconds
-      if (!APP.refreshInterval) {
-        APP.refreshInterval = setInterval(loadDashboard, 3000);
-      }
-    }function logout(){
+    function logout(){
       APP.user = null;
       APP.incidentLog = [];
       APP.leakZones = [];
@@ -1603,63 +1594,17 @@
       $('dashTime').textContent = 'Last refreshed: ' + new Date().toLocaleString('en-ZA',{dateStyle:'medium',timeStyle:'short'});
     }
 
-    async function loadDashboard(){
+    function loadDashboard(){
       updateTime();
+      const lvl = Math.floor(Math.random()*55)+35;
+      setEl('levelVal',lvl);
+      animateWidth('levelBar',lvl);
+      $('tankWater').style.height = lvl + '%';
+      $('tankPctLbl').textContent = lvl + '%';
+      renderZones();
+    }
 
-      try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/current_status?id=eq.1`, {
-          headers: {
-            "apikey": SUPABASE_KEY,
-            "Authorization": "Bearer " + SUPABASE_KEY
-          }
-        });
-
-        if(!res.ok){
-          throw new Error(`HTTP ${res.status}`);
-        }
-
-        const data = await res.json();
-        const row = data[0];
-
-        if(!row){
-          showToast('⚠ No data', 'Dashboard row not found in database');
-          return;
-        }
-
-        const lvl = row.water_level;
-        const activeZone = row.active_zone;
-        const zoneALeak = row.zone_a_leak;
-        const zoneBLeak = row.zone_b_leak;
-        const zoneCLeak = row.zone_c_leak;
-
-        // Update water level display
-        setEl('levelVal', lvl);
-        animateWidth('levelBar', lvl);
-        $('tankWater').style.height = lvl + '%';
-        $('tankPctLbl').textContent = lvl + '%';
-
-        // Render zones with leak status from database
-        renderZones(activeZone, {A: zoneALeak, B: zoneBLeak, C: zoneCLeak});
-
-        // Update map markers
-        updateMapMarkers({A: zoneALeak, B: zoneBLeak, C: zoneCLeak});
-
-        // Check for new leaks and show notification
-        if (!APP.lastData) {
-          APP.lastData = {water_level: lvl, active_zone: activeZone, leaks: {A: zoneALeak, B: zoneBLeak, C: zoneCLeak}};
-        } else {
-          const prevLeaks = APP.lastData.leaks;
-          if (!prevLeaks.A && zoneALeak) showLeakNotification('A');
-          if (!prevLeaks.B && zoneBLeak) showLeakNotification('B');
-          if (!prevLeaks.C && zoneCLeak) showLeakNotification('C');
-          APP.lastData = {water_level: lvl, active_zone: activeZone, leaks: {A: zoneALeak, B: zoneBLeak, C: zoneCLeak}};
-        }
-
-      } catch(e) {
-        console.error('Supabase fetch error:', e);
-        showToast('❌ Connection error', 'Could not fetch dashboard data');
-      }
-    }function refreshDash(){
+    function refreshDash(){
       showToast('🔄 Refreshing', 'Reading live sensor data');
       setTimeout(()=>{
         loadDashboard();
@@ -1667,11 +1612,11 @@
       },700);
     }
 
-    function renderZones(activeZoneNum, leakStatus){
+    function renderZones(){
       const ZONES = [
-        {id:'A',name:'Zone Alpha',desc:'Northern Sector', num: 1},
-        {id:'B',name:'Zone Beta',desc:'Central Pipeline', num: 2},
-        {id:'C',name:'Zone Charlie',desc:'Southern Grid', num: 3}
+        {id:'A',name:'Zone Alpha',desc:'Northern Sector'},
+        {id:'B',name:'Zone Beta',desc:'Central Pipeline'},
+        {id:'C',name:'Zone Charlie',desc:'Southern Grid'}
       ];
 
       APP.leakZones = [];
@@ -1680,31 +1625,33 @@
       grid.innerHTML = '';
 
       ZONES.forEach(z=>{
-        const isActive = z.num === activeZoneNum;
-        const hasLeakStatus = leakStatus && leakStatus[z.id];
+        const preLeak = APP.forcedLeakZone === z.id;
+        const leak = preLeak || (Math.random()<0.18);
+        const offline = !leak && Math.random()<0.04;
+
+        if(leak){
+          APP.leakZones.push(z.id);
+          hasLeak = true;
+        }
+
         const flow = (Math.random()*20+5).toFixed(1);
         const press = (Math.random()*3+1.5).toFixed(2);
 
         let sdot='normal', slbl='Sensor Active', ssub='Normal. No water detected';
-        
-        if (hasLeakStatus) {
-          APP.leakZones.push(z.id);
-          hasLeak = true;
+        if(leak){
           sdot='leak';
-          slbl='🚨 LEAK DETECTED';
-          ssub=`URGENT: Abnormal pressure ${press} bar, Flow ${flow} L/s`;
-        } else if (isActive) {
-          sdot='normal';
-          slbl='ACTIVE';
-          ssub=`Monitoring active. Flow ${flow} L/s`;
-        } else {
+          slbl='LEAK DETECTED';
+          ssub='Unexpected flow or pressure drop';
+        }
+        if(offline){
           sdot='offline';
-          slbl='STANDBY';
-          ssub='Waiting for activation';
+          slbl='Sensor Offline';
+          ssub='No signal received';
         }
 
+        const spark = generateSparkline();
         const card = document.createElement('div');
-        card.className = 'zone-card' + (hasLeakStatus ? ' leak-zone' : '');
+        card.className = 'zone-card' + (leak ? ' leak-zone' : '');
         card.innerHTML = `
           <div class="zone-id">Sensor Zone ${z.id}</div>
           <div class="zone-name-big">${z.name}</div>
@@ -1718,17 +1665,19 @@
           </div>
           <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
             <div style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);padding:6px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:.8rem">
-              ${hasLeakStatus ? '⚠ LEAK DETECTED' : (isActive ? '✓ ACTIVE' : '○ STANDBY')}
+              ${leak ? '⚠ LEAK DETECTED' : '✓ NORMAL'}
             </div>
-            ${hasLeakStatus ? `<button class="ctrl" onclick="acknowledge('${z.id}')">Acknowledge</button>` : ''}
+            <div style="margin-left:auto;display:flex;gap:8px">
+              <button class="ctrl" onclick="acknowledge('${z.id}')">Acknowledge</button>
+            </div>
           </div>
         `;
         grid.appendChild(card);
 
         const t = new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'});
-        if(hasLeakStatus) logEvent('leak',`Zone ${z.id}: Leak detected. Abnormal pressure ${press} bar`,t,`Zone ${z.id}`);
-        else if(isActive) logEvent('normal',`Zone ${z.id}: Active monitoring. Flow ${flow} L/s`,t,`Zone ${z.id}`);
-        else logEvent('normal',`Zone ${z.id}: Standby mode`,t,`Zone ${z.id}`);
+        if(leak) logEvent('leak',`Zone ${z.id}: Leak detected. Abnormal pressure ${press} bar`,t,`Zone ${z.id}`);
+        else if(offline) logEvent('system',`Zone ${z.id}: Sensor offline. No signal`,t,`Zone ${z.id}`);
+        else logEvent('normal',`Zone ${z.id}: Normal. No water detected ${flow} L/s`,t,`Zone ${z.id}`);
       });
 
       const dot = $('sysStatusDot');
@@ -1743,7 +1692,9 @@
         dot.className='status-dot green';
         txt.textContent='ALL SYSTEMS NOMINAL';
       }
-    }function seedHistory(){
+    }
+
+    function seedHistory(){
       APP.incidentLog = [
         {type:'normal',msg:'Zone A: Sensor initialised. Normal condition',time:'06:00',zone:'Zone A'},
         {type:'leak',msg:'Zone B: Pressure drop detected. Possible burst',time:'06:47',zone:'Zone B'},
@@ -1871,7 +1822,7 @@ Aqua Logic`;
       $('toggleAutoEmail').onclick = ()=>{
         APP.autoEmail = !APP.autoEmail;
         $('toggleAutoEmail').textContent = `Auto-email: ${APP.autoEmail?'ON':'OFF'}`;
-        $('autoEmailStatus').textContent = APP.autoEmail ? 'Escalation To: kledwaba2003@gmail.com' : 'Auto-escalation: OFF';
+        $('autoEmailStatus').textContent = APP.autoEmail ? 'Escalation To: fault@jwater.co.za' : 'Auto-escalation: OFF';
         showToast('Settings', `Auto-email ${APP.autoEmail?'enabled':'disabled'}`);
       };
 
@@ -1881,34 +1832,7 @@ Aqua Logic`;
       };
     }
 
-    function updateMapMarkers(leakStatus) {
-      const markers = {
-        A: $('mapZoneA'),
-        B: $('mapZoneB'),
-        C: $('mapZoneC')
-      };
-      
-      for (const [zone, marker] of Object.entries(markers)) {
-        if (!marker) continue;
-        const circle = marker.querySelector('circle');
-        if (!circle) continue;
-        
-        if (leakStatus && leakStatus[zone]) {
-          marker.classList.add('leak');
-          circle.setAttribute('fill', '#f44336');
-          circle.setAttribute('stroke', '#ff8a80');
-        } else {
-          marker.classList.remove('leak');
-          const colors = {A: '#00e5a0', B: '#29b6f6', C: '#ff8a80'};
-          circle.setAttribute('fill', colors[zone]);
-          circle.setAttribute('stroke', '#fff');
-        }
-      }
-    }
-
-    function showLeakNotification(zone) {
-      showToast('🚨 LEAK DETECTED', `Zone ${zone}: Water leak detected! Check dashboard.`, 6000);
-    }function simulateLeak(zoneId){
+    function simulateLeak(zoneId){
       APP.forcedLeakZone = zoneId || (['A','B','C'])[Math.floor(Math.random()*3)];
       showToast('⚠ Demo leak', 'A demo leak has been triggered: ' + APP.forcedLeakZone);
       renderZones();
