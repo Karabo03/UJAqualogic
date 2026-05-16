@@ -1183,30 +1183,18 @@
 
       </div>
 
-      <label style="font-size:.82rem">OTP Code</label>
-
-      <input
-        id="li-otp"
-        type="text"
-        placeholder="Enter email OTP"
-        style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"
-      />
+      
 
       <div style="display:flex;gap:8px;margin-top:10px">
 
-        <button
-          class="ctrl"
-          onclick="sendLoginOtp()"
-        >
-          Send OTP
-        </button>
-
-        <button
-          class="ctrl"
-          onclick="doLogin()"
-        >
-          Login
-        </button>
+        
+          <button
+            class="ctrl"
+            onclick="startLoginOTP()"
+          >
+            Sign In
+          </button>
+                 
 
         <button
           class="ctrl"
@@ -1217,14 +1205,45 @@
 
       </div>
 
-      <div style="font-size:.82rem;color:#3a6a7a;margin-top:6px">
-        Demo: use
-        <strong>demo@aqua.co.za</strong>
-        /
-        <strong>demo123</strong>
-      </div>
-
+          <div id="otp-section"
+         style="display:none;
+                margin-top:14px">
+    
+      <label style="font-size:.82rem">
+    
+        OTP Code
+    
+      </label>
+    
+      <input
+        id="li-otp"
+        type="text"
+        placeholder="Enter email OTP"
+        style="padding:10px;
+               border-radius:8px;
+               border:1px solid #e6f6fb"
+      />
+    
+      <button
+        class="ctrl"
+        style="margin-top:10px"
+        onclick="doLogin()"
+      >
+    
+        Verify OTP
+    
+      </button>
+    
     </div>
+    
+          <div style="font-size:.82rem;color:#3a6a7a;margin-top:6px">
+            Demo: use
+            <strong>demo@aqua.co.za</strong>
+            /
+            <strong>demo123</strong>
+          </div>
+    
+        </div>
   `;
 }
 
@@ -1537,7 +1556,7 @@
   }
   
 
-  function sendLoginOtp(){
+  function startLoginOtp(){
 
   const email = ($('li-email')||{}).value?.trim();
   const pass = ($('li-pass')||{}).value;
@@ -1590,6 +1609,8 @@
   )
   .then(() => {
 
+    $('otp-section').style.display = 'block';
+    
     showToast(
       '📧 OTP sent',
       'Check your email'
