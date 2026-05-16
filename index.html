@@ -1137,52 +1137,96 @@
     }
 
     function loginHTML(){
-      return `
-        <div style="font-family:var(--font-h);font-size:1.25rem;font-weight:800;margin-bottom:6px">Sign In</div>
-        <div style="color:#245;opacity:.85;margin-bottom:14px">Access your water monitoring dashboard</div>
-        <div style="display:grid;gap:8px">
-          <label style="font-size:.82rem">Email</label>
-          <input id="li-email" type="email" placeholder="you@domain.co.za" style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"/>
+  return `
+    <div style="font-family:var(--font-h);font-size:1.25rem;font-weight:800;margin-bottom:6px">
+      Sign In
+    </div>
 
-          <label style="font-size:.82rem">Password</label>
-          <div class="pw-wrap">
-            <input id="li-pass" type="password" placeholder="••••••"/>
-            <button type="button" class="pw-toggle" onclick="toggleEye('li-pass',this)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
-            
-          <label style="font-size:.82rem">OTP Code</label>
-        
-        <input id="li-otp"
-               type="text"
-               placeholder="Enter email OTP"
-               style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"/>
-          </div>
+    <div style="color:#245;opacity:.85;margin-bottom:14px">
+      Access your water monitoring dashboard
+    </div>
 
-          <div style="display:flex;gap:8px;margin-top:4px">
+    <div style="display:grid;gap:8px">
 
-        <button class="ctrl"
-                onclick="sendLoginOtp()">
+      <label style="font-size:.82rem">Email</label>
+
+      <input
+        id="li-email"
+        type="email"
+        placeholder="you@domain.co.za"
+        style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"
+      />
+
+      <label style="font-size:.82rem">Password</label>
+
+      <div class="pw-wrap">
+
+        <input
+          id="li-pass"
+          type="password"
+          placeholder="••••••"
+        />
+
+        <button
+          type="button"
+          class="pw-toggle"
+          onclick="toggleEye('li-pass',this)"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+
+      </div>
+
+      <label style="font-size:.82rem">OTP Code</label>
+
+      <input
+        id="li-otp"
+        type="text"
+        placeholder="Enter email OTP"
+        style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"
+      />
+
+      <div style="display:flex;gap:8px;margin-top:10px">
+
+        <button
+          class="ctrl"
+          onclick="sendLoginOtp()"
+        >
           Send OTP
         </button>
-      
-        <button class="ctrl"
-                onclick="doLogin()">
+
+        <button
+          class="ctrl"
+          onclick="doLogin()"
+        >
           Login
         </button>
-      
-        <button class="ctrl"
-                onclick="APP.authStep='register';renderAuth()">
+
+        <button
+          class="ctrl"
+          onclick="APP.authStep='register';renderAuth()"
+        >
           Register
         </button>
-      
-      </div>          
 
-          <div style="font-size:.82rem;color:#3a6a7a;margin-top:6px">
-            Demo: use <strong>demo@aqua.co.za</strong> / <strong>demo123</strong>
-          </div>
-        </div>`;
-    }
+      </div>
+
+      <div style="font-size:.82rem;color:#3a6a7a;margin-top:6px">
+        Demo: use
+        <strong>demo@aqua.co.za</strong>
+        /
+        <strong>demo123</strong>
+      </div>
+
+    </div>
+  `;
+}
 
     function registerHTML(){
       return `
