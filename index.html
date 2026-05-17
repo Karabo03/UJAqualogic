@@ -2150,22 +2150,21 @@ function verifyResetOTP(){
 
 }
     
-  function startLoginOTP(){
-    
-      if(!AUTHORIZED_USERS.includes(email.toLowerCase()))
-            
-          {
-          
-            showToast(
-                        '🔒 Unauthorized Access',
-                        'Your account is not approved for Aqua Logic platform access. Please contact your administrator.'
-                      );
-          
-            return;
-          }
-  const email = ($('li-email')||{}).value?.trim();
-      
+ function startLoginOTP(){
+
+  const email = ($('li-email')||{}).value?.trim().toLowerCase();
+
   const pass = ($('li-pass')||{}).value;
+
+  if(!AUTHORIZED_USERS.includes(email)){
+
+    showToast(
+      '🔒 Unauthorized Access',
+      'Your account is not approved for Aqua Logic platform access. Please contact your administrator.'
+    );
+
+    return;
+  }
 
   if(!email || !pass){
 
@@ -2191,7 +2190,10 @@ function verifyResetOTP(){
 
   const u = JSON.parse(stored);
 
-  if(u.email !== email || u.pass !== pass){
+  if(
+    u.email.toLowerCase() !== email ||
+    u.pass !== pass
+  ){
 
     showToast(
       '❌ Invalid credentials',
@@ -2216,7 +2218,7 @@ function verifyResetOTP(){
   .then(() => {
 
     $('otp-section').style.display = 'block';
-    
+
     showToast(
       '📧 OTP sent',
       'Check your email'
@@ -2233,6 +2235,7 @@ function verifyResetOTP(){
     );
 
   });
+
 }
 
 function saveNewPassword(){
