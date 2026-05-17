@@ -6,7 +6,7 @@
   <link rel="icon" type="image/png" href="favicon.png"> 
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Aqua Logic.co.za</title>
-  
+
    
 
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -1551,31 +1551,155 @@ function resetPasswordHTML(){
 
     <div style="display:flex;flex-direction:column;gap:12px">
 
-      <div style="font-family:var(--font-h);
-                  font-size:1.2rem;
-                  font-weight:800">
-
+      <div style="
+        font-family:var(--font-h);
+        font-size:1.3rem;
+        font-weight:800;
+      ">
         Reset Password
+      </div>
+
+      <div style="color:#456">
+        Create a strong new password
+      </div>
+
+      <label style="
+        font-size:.82rem;
+        font-weight:700;
+        color:#245;
+      ">
+        New Password
+      </label>
+
+      <div class="pw-wrap">
+
+        <input
+          id="new-reset-pass"
+          type="password"
+          placeholder="Create a strong password"
+
+          oninput="
+            updatePwFeedback(
+              this.value,
+              'resetPwBar',
+              'resetPwLbl',
+              'resetPwReqs'
+            );
+
+            checkResetConfirm();
+          "
+        />
+
+        <button
+          type="button"
+          class="pw-toggle"
+          onclick="toggleEye('new-reset-pass',this)"
+        >
+
+          <svg width="16"
+               height="16"
+               viewBox="0 0 24 24"
+               fill="none"
+               stroke="currentColor"
+               stroke-width="2">
+
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+
+            <circle cx="12" cy="12" r="3"/>
+
+          </svg>
+
+        </button>
 
       </div>
 
-      <input
-        id="new-reset-pass"
-        type="password"
-        placeholder="New Password"
-        style="padding:10px;
-               border-radius:8px;
-               border:1px solid #e6f6fb"
-      />
+      <div
+        class="pw-strength-bar"
+        id="resetPwBar"
+      >
 
-      <input
-        id="confirm-reset-pass"
-        type="password"
-        placeholder="Confirm Password"
-        style="padding:10px;
-               border-radius:8px;
-               border:1px solid #e6f6fb"
-      />
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+
+      </div>
+
+      <div
+        class="pw-strength-label"
+        id="resetPwLbl"
+      ></div>
+
+      <div
+        class="pw-reqs"
+        id="resetPwReqs"
+      >
+
+        ${PW_RULES.map(r=>`
+
+          <div class="pw-req">
+
+            <div class="req-dot">✓</div>
+
+            <span>${r.label}</span>
+
+          </div>
+
+        `).join('')}
+
+      </div>
+
+      <label style="
+        font-size:.82rem;
+        font-weight:700;
+        color:#245;
+      ">
+        Confirm Password
+      </label>
+
+      <div class="pw-wrap">
+
+        <input
+          id="confirm-reset-pass"
+          type="password"
+          placeholder="Repeat your password"
+
+          oninput="checkResetConfirm()"
+        />
+
+        <button
+          type="button"
+          class="pw-toggle"
+          onclick="toggleEye('confirm-reset-pass',this)"
+        >
+
+          <svg width="16"
+               height="16"
+               viewBox="0 0 24 24"
+               fill="none"
+               stroke="currentColor"
+               stroke-width="2">
+
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+
+            <circle cx="12" cy="12" r="3"/>
+
+          </svg>
+
+        </button>
+
+      </div>
+
+      <div
+        id="resetMatchMsg"
+
+        style="
+          font-size:.76rem;
+          margin-top:4px;
+          height:14px;
+          font-weight:700;
+        "
+      ></div>
 
       <button
         class="ctrl"
@@ -1652,6 +1776,41 @@ function resetSuccessHTML(){
         msg.style.color = '#f44336';
       }
     }
+
+    function checkResetConfirm(){
+
+  const pw =
+    ($('new-reset-pass')||{}).value || '';
+
+  const cf =
+    ($('confirm-reset-pass')||{}).value || '';
+
+  const msg = $('resetMatchMsg');
+
+  if(!msg) return;
+
+  if(cf.length === 0){
+
+    msg.textContent = '';
+
+    return;
+  }
+
+  if(pw === cf){
+
+    msg.textContent = '✓ Passwords match';
+
+    msg.style.color = '#00b86b';
+
+  } else {
+
+    msg.textContent = '✗ Passwords do not match';
+
+    msg.style.color = '#f44336';
+
+  }
+
+}
 
     function setupOtpInputs(){
       const inputs = document.querySelectorAll('.auth-panel input[maxlength="1"]');
@@ -2039,7 +2198,7 @@ function verifyResetOTP(){
   });
 }
 
-    function saveNewPassword(){
+function saveNewPassword(){
 
   const pass =
     ($('new-reset-pass')||{}).value;
@@ -2062,6 +2221,16 @@ function verifyResetOTP(){
     showToast(
       '⚠ Weak Password',
       'Minimum 8 characters'
+    );
+
+    return;
+  }
+
+  if(getStrength(pass) < 3){
+
+    showToast(
+      '⚠ Weak Password',
+      'Please create a stronger password'
     );
 
     return;
@@ -2092,6 +2261,11 @@ function verifyResetOTP(){
   APP.authStep = 'resetSuccess';
 
   renderAuth();
+
+  showToast(
+    '✅ Password Updated',
+    'Your password has been reset successfully'
+  );
 
 }
     
