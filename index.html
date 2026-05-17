@@ -282,6 +282,7 @@
       color:#123c4e;
       margin-bottom:18px;
       line-height:1.6;
+      font-size:1.1rem;
     }
 
     .hero-cta{display:flex;gap:12px;justify-content:center;}
@@ -328,26 +329,49 @@
     .faq-item{margin-bottom:12px;border-radius:12px;overflow:hidden;}
 
     .faq-q{
-      width:100%;
-      padding:14px 18px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      background:rgba(255,255,255,0.9);
-      border:1px solid rgba(220,235,245,0.9);
-      border-radius:12px;
-      color:#0d2137;
-      cursor:pointer;
-      backdrop-filter:blur(10px);
-      transition:.3s ease;
+             width:100%;
+        
+        padding:12px 16px;
+        
+        display:flex;
+        
+        align-items:center;
+        
+        justify-content:space-between;
+        
+        background:rgba(255,255,255,0.88);
+        
+        border:1px solid rgba(220,235,245,0.9);
+        
+        border-radius:12px;
+        
+        color:#003b73;
+        
+        cursor:pointer;
+        
+        backdrop-filter:blur(10px);
+        
+        transition:.3s ease;
+        
+        font-family:var(--font-h);
+        
+        font-size:.95rem;
+        
+        font-weight:700;
+        
+        letter-spacing:.3px;
+        
+        box-shadow:
+          0 4px 12px rgba(0,0,0,0.05); 
+     
     }
       
      .faq-q:hover{
-      
+        transform:translateY(-2px);
         background:#003b73;
-      
         color:white;
-      
+         box-shadow:
+        0 8px 20px rgba(0,59,115,0.25);
       }
 
     .faq-a{
@@ -873,7 +897,7 @@
     <section class="hero">
       <div class="hero-eyebrow"><span></span>National Water Intelligence<span></span></div>
       <h1 class="hero-title">Smart Water<br><span>Monitoring System</span></h1>
-      <p class="hero-sub">Real time leak detection, reservoir monitoring, and automated fault escalation that protects Johannesburg water infrastructure around the clock.</p>
+      <p class="hero-sub">Real time leak detection, reservoir monitoring, and automated fault escalation that protects water infrastructure around the clock.</p>
       <div class="hero-cta">
         <button class="ctrl" onclick="document.getElementById('faq-section').scrollIntoView({behavior:'smooth'})">Learn More</button>
       </div>
