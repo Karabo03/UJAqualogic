@@ -203,7 +203,30 @@
       padding:48px 20px 36px;
       text-align:center;
       position:relative;
+      overflow:hidden;
     }
+
+    .hero::before{
+
+  content:'';
+
+  position:absolute;
+
+  width:500px;
+
+  height:500px;
+
+  background:rgba(255,255,255,0.08);
+
+  border-radius:50%;
+
+  top:-120px;
+
+  right:-120px;
+
+  filter:blur(40px);
+
+}
 
     .hero-eyebrow{
       font-family:var(--font-m);
@@ -219,13 +242,40 @@
 
     .hero-title{
       font-family:var(--font-h);
-      font-size:clamp(2rem,5vw,4rem);
+    
+      font-size:clamp(2.5rem,6vw,5rem);
+    
       font-weight:800;
+    
       line-height:1.02;
+    
       margin-bottom:16px;
+    
       color:#072b3a;
+    
+      text-shadow:
+        0 0 10px rgba(41,182,246,0.25),
+        0 0 25px rgba(41,182,246,0.15);
+    
+      animation:floatTitle 4s ease-in-out infinite;
     }
 
+    @keyframes floatTitle{
+
+      0%{
+        transform:translateY(0px);
+      }
+    
+      50%{
+        transform:translateY(-6px);
+      }
+    
+      100%{
+        transform:translateY(0px);
+      }
+    
+    }
+        
     .hero-sub{
       max-width:720px;
       color:#123c4e;
@@ -260,7 +310,7 @@
     }
 
     .faq-section{
-      padding:36px 20px 80px;
+      padding:120px 20px 80px;
       max-width:960px;
       margin:0 auto;
     }
@@ -287,7 +337,17 @@
       border-radius:12px;
       color:#0d2137;
       cursor:pointer;
+      backdrop-filter:blur(10px);
+      transition:.3s ease;
     }
+      
+     .faq-q:hover{
+      
+        background:#003b73;
+      
+        color:white;
+      
+      }
 
     .faq-a{
       max-height:0;
