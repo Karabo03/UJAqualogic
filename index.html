@@ -1865,8 +1865,8 @@ function resetSuccessHTML(){
       APP.pendingReg = { name, surname, email, phone, pass };
       APP.emailOTP = genOTP();
 
-      emailjs.send("service_36h95pb","template_len1b5s",{
-        to_email: APP.pendingReg.email,
+      emailjs.send("service_pljtgtf","template_j20o1f6",{
+        email: APP.pendingReg.email,
         otp_code: APP.emailOTP
       })
       .then(()=>{
@@ -1888,8 +1888,8 @@ function resetSuccessHTML(){
 
       if(type === 'email'){
         APP.emailOTP = genOTP();
-        emailjs.send("service_36h95pb","template_len1b5s",{
-          to_email: APP.pendingReg.email,
+        emailjs.send("service_pljtgtf","template_j20o1f6",{
+          email: APP.pendingReg.email,
           otp_code: APP.emailOTP
         })
         .then(()=>showToast('📧 Email OTP resent', 'Check your inbox'))
@@ -2071,10 +2071,10 @@ function sendResetOTP(){
   APP.resetOTP = genOTP();
 
   emailjs.send(
-    "service_36h95pb",
-    "template_len1b5s",
+    "service_pljtgtf",
+    "template_j20o1f6",
     {
-      to_email: email,
+      email: email,
       otp_code: APP.resetOTP
     }
   )
@@ -2169,10 +2169,10 @@ function verifyResetOTP(){
   APP.emailOTP = genOTP();
 
   emailjs.send(
-    "service_36h95pb",
-    "template_len1b5s",
+    "service_pljtgtf",
+    "template_j20o1f6",
     {
-      to_email: u.email,
+      email: u.email,
       otp_code: APP.emailOTP
     }
   )
