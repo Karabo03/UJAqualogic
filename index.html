@@ -1231,6 +1231,10 @@
       else if(s === 'register') c.innerHTML = registerHTML();
       else if(s === 'verifyEmail') c.innerHTML = verifyEmailHTML();
       else if(s === 'verifyPhone') c.innerHTML = verifyPhoneHTML();
+      else if(s === 'forgotEmail') c.innerHTML = forgotEmailHTML();
+      else if(s === 'forgotOTP') c.innerHTML = forgotOTPHTML();
+      else if(s === 'resetPassword') c.innerHTML = resetPasswordHTML();
+      else if(s === 'resetSuccess') c.innerHTML = resetSuccessHTML();
 
       const rc = $('recaptcha-container');
       if(rc){
@@ -1450,7 +1454,185 @@
           </div>
         </div>`;
     }
+    
 
+    function forgotEmailHTML(){
+
+  return `
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+      <div style="font-family:var(--font-h);
+                  font-size:1.2rem;
+                  font-weight:800">
+
+        Forgot Password
+
+      </div>
+
+      <div style="color:#456">
+
+        Enter your registered email
+
+      </div>
+
+      <input
+        id="fp-email"
+        type="email"
+        placeholder="you@domain.co.za"
+        style="padding:10px;
+               border-radius:8px;
+               border:1px solid #e6f6fb"
+      />
+
+      <button
+        class="ctrl"
+        onclick="sendResetOTP()"
+      >
+        Send OTP
+      </button>
+
+      <button
+        class="ctrl"
+        onclick="APP.authStep='login';renderAuth()"
+      >
+        Back To Sign In
+      </button>
+
+    </div>
+
+  `;
+}
+
+function forgotOTPHTML(){
+
+  return `
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+      <div style="font-family:var(--font-h);
+                  font-size:1.2rem;
+                  font-weight:800">
+
+        Verify OTP
+
+      </div>
+
+      <div style="color:#456">
+
+        Enter the OTP sent to your email
+
+      </div>
+
+      <input
+        id="fp-otp"
+        type="text"
+        placeholder="6 digit OTP"
+        style="padding:10px;
+               border-radius:8px;
+               border:1px solid #e6f6fb"
+      />
+
+      <button
+        class="ctrl"
+        onclick="verifyResetOTP()"
+      >
+        Verify OTP
+      </button>
+
+    </div>
+
+  `;
+}
+
+function resetPasswordHTML(){
+
+  return `
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+      <div style="font-family:var(--font-h);
+                  font-size:1.2rem;
+                  font-weight:800">
+
+        Reset Password
+
+      </div>
+
+      <input
+        id="new-reset-pass"
+        type="password"
+        placeholder="New Password"
+        style="padding:10px;
+               border-radius:8px;
+               border:1px solid #e6f6fb"
+      />
+
+      <input
+        id="confirm-reset-pass"
+        type="password"
+        placeholder="Confirm Password"
+        style="padding:10px;
+               border-radius:8px;
+               border:1px solid #e6f6fb"
+      />
+
+      <button
+        class="ctrl"
+        onclick="saveNewPassword()"
+      >
+        Reset Password
+      </button>
+
+    </div>
+
+  `;
+}
+
+function resetSuccessHTML(){
+
+  return `
+
+    <div style="
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:14px;
+      text-align:center;
+    ">
+
+      <div style="
+        font-size:60px;
+      ">
+        ✅
+      </div>
+
+      <div style="
+        font-family:var(--font-h);
+        font-size:1.3rem;
+        font-weight:800;
+      ">
+        Password Reset Successful
+      </div>
+
+      <div style="color:#456">
+        Your password has been updated successfully.
+      </div>
+
+      <button
+        class="ctrl"
+        onclick="
+          APP.authStep='login';
+          renderAuth();
+        "
+      >
+        Sign In
+      </button>
+
+    </div>
+
+  `;
+}
     function initRegisterForm(){}
 
     function checkConfirm(){
@@ -1677,13 +1859,28 @@
     );
   }
 
- function showForgotPassword(){
+  function showForgotPassword(){
 
-  const email = prompt(
-    "Enter your registered email:"
-  );
+APP.authStep = 'forgotEmail';
 
-  if(!email) return;
+renderAuth();
+
+}
+
+function sendResetOTP(){
+
+  const email =
+    ($('fp-email')||{}).value?.trim();
+
+  if(!email){
+
+    showToast(
+      '⚠ Missing Email',
+      'Enter your email'
+    );
+
+    return;
+  }
 
   const stored =
     localStorage.getItem('aq_user');
@@ -1691,8 +1888,8 @@
   if(!stored){
 
     showToast(
-      '❌ No account',
-      'No registered user found'
+      '❌ No Account',
+      'No registered account found'
     );
 
     return;
@@ -1703,7 +1900,7 @@
   if(user.email !== email){
 
     showToast(
-      '❌ Email not found',
+      '❌ Email Not Found',
       'This email is not registered'
     );
 
@@ -1724,7 +1921,14 @@
   )
   .then(()=>{
 
-    verifyResetOTP();
+    APP.authStep = 'forgotOTP';
+
+    renderAuth();
+
+    showToast(
+      '📧 OTP Sent',
+      'Check your email'
+    );
 
   })
   .catch((err)=>{
@@ -1732,74 +1936,36 @@
     console.error(err);
 
     showToast(
-      '❌ OTP failed',
-      'Could not send reset OTP'
+      '❌ OTP Failed',
+      'Could not send OTP'
     );
 
   });
 
 }
 
-    function verifyResetOTP(){
+  
+function verifyResetOTP(){
 
-  const code = prompt(
-    "Enter the OTP sent to your email:"
-  );
-
-  if(!code) return;
+  const code =
+    ($('fp-otp')||{}).value?.trim();
 
   if(code !== APP.resetOTP){
 
     showToast(
       '❌ Wrong OTP',
-      'Incorrect reset code'
+      'Incorrect OTP code'
     );
 
     return;
   }
 
-  const newPass = prompt(
-    "Enter your new password:"
-  );
+  APP.authStep = 'resetPassword';
 
-  if(!newPass){
-
-    showToast(
-      '⚠ Cancelled',
-      'Password reset cancelled'
-    );
-
-    return;
-  }
-
-  if(newPass.length < 8){
-
-    showToast(
-      '⚠ Weak password',
-      'Minimum 8 characters required'
-    );
-
-    return;
-  }
-
-  const stored =
-    JSON.parse(localStorage.getItem('aq_user'));
-
-  stored.pass = newPass;
-
-  localStorage.setItem(
-    'aq_user',
-    JSON.stringify(stored)
-  );
-
-  showToast(
-    '✅ Password Reset',
-    'You can now login'
-  );
+  renderAuth();
 
 }
-  
-
+    
   function startLoginOTP(){
 
   const email = ($('li-email')||{}).value?.trim();
@@ -1871,6 +2037,62 @@
     );
 
   });
+}
+
+    function saveNewPassword(){
+
+  const pass =
+    ($('new-reset-pass')||{}).value;
+
+  const confirm =
+    ($('confirm-reset-pass')||{}).value;
+
+  if(!pass || !confirm){
+
+    showToast(
+      '⚠ Missing Fields',
+      'Complete all fields'
+    );
+
+    return;
+  }
+
+  if(pass.length < 8){
+
+    showToast(
+      '⚠ Weak Password',
+      'Minimum 8 characters'
+    );
+
+    return;
+  }
+
+  if(pass !== confirm){
+
+    showToast(
+      '❌ Password Mismatch',
+      'Passwords do not match'
+    );
+
+    return;
+  }
+
+  const stored =
+    JSON.parse(
+      localStorage.getItem('aq_user')
+    );
+
+  stored.pass = pass;
+
+  localStorage.setItem(
+    'aq_user',
+    JSON.stringify(stored)
+  );
+
+  APP.authStep = 'resetSuccess';
+
+  renderAuth();
+
 }
     
     function launchDashboard(){
