@@ -995,7 +995,7 @@
               </div>
               <div class="controls" style="margin-top:12px">
                
-                <button class="ctrl" onclick="simulateLeak()">Trigger Leak</button>
+                <button class="ctrl" onclick="simulateLeak(); openFaultModal();">Trigger Leak</button>
               </div>
             </div>
           </div>
@@ -2392,7 +2392,7 @@ function saveNewPassword(){
         dot.className='status-dot red';
         txt.textContent=`⚠ ${APP.leakZones.length} LEAK${APP.leakZones.length>1?'S':''} DETECTED`;
         setTimeout(()=>openFaultModal(),650);
-        if(APP.autoEmail && Date.now()>APP.silenceUntil) attemptAutoEscalation();
+       
       }else{
         dot.className='status-dot green';
         txt.textContent='ALL SYSTEMS NOMINAL';
