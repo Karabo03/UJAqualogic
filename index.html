@@ -2371,7 +2371,7 @@ function saveNewPassword(){
 
       ZONES.forEach(z=>{
         const preLeak = APP.forcedLeakZone === z.id;
-        
+        const leak = preLeak || (Math.random()<0.18);
         const offline = !leak && Math.random()<0.04;
 
         if(leak){
@@ -2422,7 +2422,7 @@ function saveNewPassword(){
         const t = new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'});
         if(leak) logEvent('leak',`Zone ${z.id}: Leak detected. Abnormal pressure ${press} bar`,t,`Zone ${z.id}`);
         else if(offline) logEvent('system',`Zone ${z.id}: Sensor offline. No signal`,t,`Zone ${z.id}`);
-        
+        else logEvent('normal',`Zone ${z.id}: Normal. No water detected ${flow} L/s`,t,`Zone ${z.id}`);
       });
 
       const dot = $('sysStatusDot');
