@@ -1059,6 +1059,22 @@
   <script>
     const $ = (id) => document.getElementById(id);
 
+        const AUTHORIZED_USERS = [
+    
+      "kledwaba2003@gmail.com",
+    
+      "moalosijustice0@gmail.com",
+    
+      "hanyanijunior7@gmail.com",
+    
+      "edwinskg2004@gmail.com",
+    
+      "mtshwenelinda@gmail.com",
+    
+      "lucfola@gmail.com"
+    
+    ];
+    
     const APP = {
       user: null,
       pendingReg: null,
@@ -1837,6 +1853,15 @@ function resetSuccessHTML(){
       const name = ($('rg-name')||{}).value?.trim();
       const surname = ($('rg-surname')||{}).value?.trim();
       const email = ($('rg-email')||{}).value?.trim();
+          if(!AUTHORIZED_USERS.includes( email.toLowerCase()))
+          {  
+                  showToast(
+                              '🔒 Access Restricted',
+                              'This email address is not authorised to access Aqua Logic systems. Please contact the system administrator.'
+                            );
+                
+                  return;
+            }
       const phoneRaw = ($('rg-phone')||{}).value?.trim();
       const phone = normalizePhoneNumber(phoneRaw);
       const pass = ($('rg-pass')||{}).value;
@@ -2126,8 +2151,20 @@ function verifyResetOTP(){
 }
     
   function startLoginOTP(){
-
+    
+      if(!AUTHORIZED_USERS.includes(email.toLowerCase()))
+            
+          {
+          
+            showToast(
+                        '🔒 Unauthorized Access',
+                        'Your account is not approved for Aqua Logic platform access. Please contact your administrator.'
+                      );
+          
+            return;
+          }
   const email = ($('li-email')||{}).value?.trim();
+      
   const pass = ($('li-pass')||{}).value;
 
   if(!email || !pass){
