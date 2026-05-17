@@ -1063,6 +1063,8 @@
       user: null,
       pendingReg: null,
       emailOTP: '',
+      resetOTP:'',
+      resetEmail:'',
       authStep: 'login',
       incidentLog: [],
       leakZones: [],
@@ -1675,11 +1677,128 @@
     );
   }
 
-  function showForgotPassword(){
+ function showForgotPassword(){
 
-  alert("Password reset feature coming soon.");
+  const email = prompt(
+    "Enter your registered email:"
+  );
+
+  if(!email) return;
+
+  const stored =
+    localStorage.getItem('aq_user');
+
+  if(!stored){
+
+    showToast(
+      '❌ No account',
+      'No registered user found'
+    );
+
+    return;
+  }
+
+  const user = JSON.parse(stored);
+
+  if(user.email !== email){
+
+    showToast(
+      '❌ Email not found',
+      'This email is not registered'
+    );
+
+    return;
+  }
+
+  APP.resetEmail = email;
+
+  APP.resetOTP = genOTP();
+
+  emailjs.send(
+    "service_36h95pb",
+    "template_len1b5s",
+    {
+      to_email: email,
+      otp_code: APP.resetOTP
+    }
+  )
+  .then(()=>{
+
+    verifyResetOTP();
+
+  })
+  .catch((err)=>{
+
+    console.error(err);
+
+    showToast(
+      '❌ OTP failed',
+      'Could not send reset OTP'
+    );
+
+  });
 
 }
+
+    function verifyResetOTP(){
+
+  const code = prompt(
+    "Enter the OTP sent to your email:"
+  );
+
+  if(!code) return;
+
+  if(code !== APP.resetOTP){
+
+    showToast(
+      '❌ Wrong OTP',
+      'Incorrect reset code'
+    );
+
+    return;
+  }
+
+  const newPass = prompt(
+    "Enter your new password:"
+  );
+
+  if(!newPass){
+
+    showToast(
+      '⚠ Cancelled',
+      'Password reset cancelled'
+    );
+
+    return;
+  }
+
+  if(newPass.length < 8){
+
+    showToast(
+      '⚠ Weak password',
+      'Minimum 8 characters required'
+    );
+
+    return;
+  }
+
+  const stored =
+    JSON.parse(localStorage.getItem('aq_user'));
+
+  stored.pass = newPass;
+
+  localStorage.setItem(
+    'aq_user',
+    JSON.stringify(stored)
+  );
+
+  showToast(
+    '✅ Password Reset',
+    'You can now login'
+  );
+
+}
+  
 
   function startLoginOTP(){
 
