@@ -810,7 +810,10 @@
       <div class="top-row">
         <div class="metric-card" aria-live="polite">
           <div class="mc-label">💧 Reservoir Water Level</div>
-          <div class="mc-val"><span id="levelVal">—</span><span style="font-size:1rem;margin-left:6px;color:#7dd8f0">%</span></div>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+            <div class="mc-val"><span id="levelVal">—</span><span style="font-size:1rem;margin-left:6px;color:#7dd8f0">%</span></div>
+            <div id="levelStatus" style="display:inline-block;padding:6px 14px;border-radius:999px;font-weight:700;font-size:.8rem;background:rgba(255,255,255,.08);color:#b0d8f0;border:1px solid rgba(255,255,255,.2)">● WAITING</div>
+          </div>
           <div class="level-bar-bg" style="margin-top:16px;"><div class="level-bar-fill" id="levelBar" style="width:0%"></div></div>
           <div style="display:flex;justify-content:space-between;font-family:var(--font-m);font-size:.72rem;color:rgba(255,255,255,0.5);margin-top:8px"><span>0%</span><span>50%</span><span>100%</span></div>
         </div>
@@ -1586,7 +1589,42 @@
       animateWidth('levelBar', lvl);
       $('tankWater').style.height = lvl + '%';
       $('tankPctLbl').textContent = lvl + '%';
+      updateLevelStatus(lvl);
       renderZones(data);
+    }
+
+    // Mirrors the physical LED level indicator on the device:
+    // green at 70% or more, yellow from 30% to 69%, red below 30%.
+    function updateLevelStatus(lvl){
+      const st = $('levelStatus');
+      const bar = $('levelBar');
+      const water = $('tankWater');
+      if(!st) return;
+
+      if(lvl >= 70){
+        st.textContent = '● LEVEL GOOD';
+        st.style.background = 'rgba(0,201,122,.15)';
+        st.style.color = '#00e5a0';
+        st.style.borderColor = '#00c97a';
+        if(bar) bar.style.background = 'linear-gradient(90deg,#00915f,#00e5a0)';
+        if(water) water.style.background = 'linear-gradient(180deg,#00e5a0,#00915f)';
+      }
+      else if(lvl >= 30){
+        st.textContent = '● LEVEL MODERATE';
+        st.style.background = 'rgba(255,179,0,.15)';
+        st.style.color = '#ffb300';
+        st.style.borderColor = '#ffb300';
+        if(bar) bar.style.background = 'linear-gradient(90deg,#c98a00,#ffb300)';
+        if(water) water.style.background = 'linear-gradient(180deg,#ffb300,#c98a00)';
+      }
+      else {
+        st.textContent = '● LEVEL LOW - REFILL';
+        st.style.background = 'rgba(244,67,54,.15)';
+        st.style.color = '#ff6b5e';
+        st.style.borderColor = '#f44336';
+        if(bar) bar.style.background = 'linear-gradient(90deg,#b71c1c,#f44336)';
+        if(water) water.style.background = 'linear-gradient(180deg,#f44336,#b71c1c)';
+      }
     }
 
     function setSystemStatus(color, text){
