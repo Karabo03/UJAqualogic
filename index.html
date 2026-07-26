@@ -771,7 +771,7 @@
     </section>
     <footer class="pub-footer">
       <p>© Aqua Logic 2026 · National Water Intelligence · Powered by Smart Sensor Technology</p>
-      <p style="margin-top:6px">Emergency Faults: <a href="mailto:fault@jwater.co.za">fault@jwater.co.za</a> · Joburg Water Hotline: <strong>0860 562 874</strong></p>
+      <p style="margin-top:6px">Emergency Faults: <a href="mailto:fault@jwater.co.za">support@ujaqualogic.co.za</a> · Aqua Logic  Hotline: <strong>0860 000 000</strong></p>
     </footer>
   </div>
   <div class="auth-overlay" id="authOverlay" role="dialog" aria-modal="true" aria-hidden="true">
@@ -945,7 +945,7 @@
       {q:"What is Aqua Logic?",a:"Aqua Logic is a smart water intelligence platform that monitors water infrastructure in real time, tracks reservoir levels, and detects leaks across Zones A, B, and C."},
       {q:"How does leak detection work?",a:"Each zone has a smart sensor. The system checks flow and pressure. When readings become abnormal, a leak alert is triggered and recorded."},
       {q:"Why verify email and phone?",a:"Verification confirms that the operator contact details are real and reachable. Email is checked first. Phone is checked second."},
-      {q:"What happens when a leak is detected?",a:"The affected zone turns into an alert state, an incident is logged, and a fault report can be prepared for Joburg Water."}
+      {q:"What happens when a leak is detected?",a:"The affected zone turns into an alert state, an incident is logged, and a fault report can be prepared for Rand Water."}
     ];
     function showToast(title, msg, timeout = 4200){
       const pile = $('toastPile');
@@ -1765,7 +1765,7 @@
       const zones = APP.leakZones.length ? APP.leakZones.map(z=>`Zone ${z}`).join(', ') : '—';
       const now = new Date().toLocaleString('en-ZA');
       const u = APP.user || {};
-      const body = `TO: fault@jwater.co.za
+      const body = `TO: support@ujaqualogic.co.za 
 FROM: ${u.email || 'system@aqualogic.co.za'}
 SUBJECT: [URGENT] Leak Detected. ${zones}
 Dear Joburg Water Fault Response Team,
@@ -1796,9 +1796,9 @@ Aqua Logic`;
       const zones = APP.leakZones.length ? APP.leakZones.map(z=>`Zone ${z}`).join(', ') : '—';
       const sub = encodeURIComponent(`[URGENT] Water Leak. ${zones}. Aqua Logic`);
       const body = encodeURIComponent($('faultEmailBody').textContent);
-      window.location.href = `mailto:fault@jwater.co.za?subject=${sub}&body=${body}`;
+      window.location.href = `mailto:support@ujaqualogic.co.za?subject=${sub}&body=${body}`;
       APP.lastEmailSentAt = Date.now();
-      logEvent('email',`Fault report sent to fault@jwater.co.za for ${zones}`,new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),'System');
+      logEvent('email',`Fault report sent to support@ujaqualogic.co.za for ${zones}`,new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),'System');
       closeFault();
       showToast('📧 Report prepared', 'Fault dispatched through mail client');
     }
