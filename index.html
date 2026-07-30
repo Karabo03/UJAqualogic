@@ -1499,39 +1499,60 @@
       APP.authStep = 'resetPassword';
       renderAuth();
     }
+    
     function startLoginOTP(){
-      const email = ($('li-email')||{}).value?.trim().toLowerCase();
-      const pass = ($('li-pass')||{}).value;
-      if(!AUTHORIZED_USERS.includes(email)){
-        showToast('🔒 Unauthorized Access', 'Your account is not approved for Aqua Logic platform access. Please contact your administrator.');
-        return;
-      }
-      if(!email || !pass){
-        showToast('⚠ Missing details', 'Enter email and password first');
-        return;
-      }
-      const stored = localStorage.getItem('aq_user');
-      if(!stored){
-        showToast('❌ Account not found', 'Please register first');
-        return;
-      }
-      const u = JSON.parse(stored);
-      if(u.email.toLowerCase() !== email || u.pass !== pass){
-        showToast('❌ Invalid credentials', 'Incorrect email or password');
-        return;
-      }
-      APP.pendingLogin = u;
+  const email = ($('li-email')||{}).value?.trim().toLowerCase();
+  const pass  = ($('li-pass')||{}).value;
+ 
+  
+  if(!email || !pass){
+    showToast('⚠ Missing details', 'Enter email and password first');
+    return;
+  }
+  if(!AUTHORIZED_USERS.includes(email)){
+    showToast('🔒 Unauthorized Access', 'Your account is not approved for Aqua Logic platform access. Please contact your administrator.');
+    return;
+  }
+ 
+  auth.signInWithEmailAndPassword(email, pass)
+    .then(cred => rtdb.ref('users/' + cred.user.uid).get())
+    .then(snap => {
+      APP.pendingLogin = snap.val() || { name:'Operator', surname:'', email:email, phone:'' };
       APP.emailOTP = genOTP();
-      emailjs.send("service_pljtgtf","template_j20o1f6",{ email: u.email, otp_code: APP.emailOTP })
-      .then(() => {
-        $('otp-section').style.display = 'block';
-        showToast('📧 OTP sent', 'Check your email');
-      })
-      .catch((err) => {
-        console.error(err);
-        showToast('❌ OTP failed', 'Could not send OTP');
+      return emailjs.send("service_pljtgtf","template_j20o1f6",{
+        email: email,
+        otp_code: APP.emailOTP
       });
-    }
+    })
+    .then(() => {
+      $('otp-section').style.display = 'block';
+      showToast('📧 OTP sent', 'Check your email');
+    })
+    .catch(err => {
+      console.error(err);
+      switch(err.code){
+        case 'auth/user-not-found':
+          showToast('❌ Account not found', 'Please register first');
+          break;
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+        case 'auth/invalid-login-credentials':
+          showToast('❌ Invalid credentials', 'Incorrect email or password');
+          break;
+        case 'auth/invalid-email':
+          showToast('⚠ Invalid email', 'Check the email address');
+          break;
+        case 'auth/too-many-requests':
+          showToast('⚠ Too many attempts', 'Wait a moment and try again');
+          break;
+        case 'auth/network-request-failed':
+          showToast('❌ No connection', 'Check your internet and try again');
+          break;
+        default:
+          showToast('❌ Sign in failed', err.message || 'Please try again');
+      }
+    });
+}
     function saveNewPassword(){
       const pass = ($('new-reset-pass')||{}).value;
       const confirm = ($('confirm-reset-pass')||{}).value;
