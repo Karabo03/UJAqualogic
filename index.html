@@ -1767,20 +1767,46 @@ Aqua Logic`;
       $('faultModal').classList.remove('show');
       $('faultModal').setAttribute('aria-hidden','true');
     }
+
     function sendFaultEmail(){
-      if(APP.lastEmailSentAt && (Date.now()-APP.lastEmailSentAt<60000)){
-        showToast('⚠ Already sent', 'A report was recently sent');
-        return;
-      }
-      const zones = APP.leakZones.length ? APP.leakZones.map(z=>`Zone ${z}`).join(', ') : '—';
-      const sub = encodeURIComponent(`[URGENT] Water Leak. ${zones}. Aqua Logic`);
-      const body = encodeURIComponent($('faultEmailBody').textContent);
-      window.location.href = `mailto:support@ujaqualogic.co.za?subject=${sub}&body=${body}`;
-      APP.lastEmailSentAt = Date.now();
-      logEvent('email',`Fault report sent to support@ujaqualogic.co.za for ${zones}`,new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),'System');
-      closeFault();
-      showToast('📧 Report prepared', 'Fault dispatched through mail client');
-    }
+  if(APP.lastEmailSentAt && (Date.now() - APP.lastEmailSentAt < 60000)){
+    showToast('⚠ Already sent', 'A report was recently sent');
+    return;
+  }
+ 
+  const btn = $('sendFaultBtn');
+  const zones = APP.leakZones.length
+    ? APP.leakZones.map(z => `Zone ${z}`).join(', ')
+    : '—';
+  const reportBody = $('faultEmailBody').textContent;
+ 
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+ 
+  emailjs.send("service_pljtgtf", "template_fault", {
+    email:    "support@ujaqualogic.co.za",
+    subject:  `[URGENT] Water Leak. ${zones}. Aqua Logic`,
+    message:  reportBody,
+    reply_to: APP.user?.email || 'system@aqualogic.co.za'
+  })
+  .then(() => {
+    APP.lastEmailSentAt = Date.now();
+    logEvent('email',
+      `Fault report sent to support@ujaqualogic.co.za for ${zones}`,
+      new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),
+      'System');
+    closeFault();
+    showToast('📧 Report sent', 'The response team has been notified');
+  })
+  .catch(err => {
+    console.error(err);
+    showToast('❌ Report failed', 'Could not send. Check your connection and try again.');
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.textContent = 'Send Report';
+  });
+}
     function acknowledge(zone){
       logEvent('system',`Zone ${zone}: Incident acknowledged by operator`,new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),`Zone ${zone}`);
       showToast('📝 Acknowledged', `Zone ${zone} acknowledged`);
