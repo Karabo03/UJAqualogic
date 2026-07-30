@@ -1479,15 +1479,7 @@
     });
 }
     
-    function verifyResetOTP(){
-      const code = ($('fp-otp')||{}).value?.trim();
-      if(code !== APP.resetOTP){
-        showToast('❌ Wrong OTP', 'Incorrect OTP code');
-        return;
-      }
-      APP.authStep = 'resetPassword';
-      renderAuth();
-    }
+    
     
     function startLoginOTP(){
   const email = ($('li-email')||{}).value?.trim().toLowerCase();
