@@ -1426,37 +1426,30 @@
           showToast('❌ SMS send failed', 'Check Firebase Phone Auth, domain, and number format');
         });
     }
+
     function doLogin(){
-      const email = ($('li-email')||{}).value?.trim();
-      const pass = ($('li-pass')||{}).value;
-      const otp = ($('li-otp')||{}).value?.trim();
-      if(!email || !pass || !otp){
-        showToast('⚠ Missing details', 'Enter email, password and OTP');
-        return;
-      }
-      const stored = localStorage.getItem('aq_user');
-      if(stored){
-        const u = JSON.parse(stored);
-        if(u.email === email && u.pass === pass){
-          if(otp !== APP.emailOTP){
-            showToast('❌ Wrong OTP', 'Incorrect verification code');
-            return;
-          }
-          APP.user = u;
-          closeAuth();
-          launchDashboard();
-          showToast('✅ Login successful', `Welcome, ${u.name}`);
-          return;
-        }
-      }
-      if(email === 'demo@aqua.co.za' && pass === 'demo123'){
-        APP.user = { name:'Demo', surname:'User', email, phone:'+27110000000' };
-        closeAuth();
-        launchDashboard();
-        return;
-      }
-      showToast('❌ Login failed', 'Invalid credentials');
-    }
+  const otp = ($('li-otp')||{}).value?.trim();
+ 
+  if(!otp){
+    showToast('⚠ Missing OTP', 'Enter the code sent to your email');
+    return;
+  }
+  if(!APP.pendingLogin){
+    showToast('⚠ Session expired', 'Please sign in again');
+    return;
+  }
+  if(otp !== APP.emailOTP){
+    showToast('❌ Wrong OTP', 'Incorrect verification code');
+    return;
+  }
+ 
+  APP.user = APP.pendingLogin;
+  APP.pendingLogin = null;
+  closeAuth();
+  launchDashboard();
+  showToast('✅ Login successful', `Welcome, ${APP.user.name}`);
+}
+    
     function showForgotPassword(){
       APP.authStep = 'forgotEmail';
       renderAuth();
