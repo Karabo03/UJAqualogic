@@ -1454,35 +1454,31 @@
       APP.authStep = 'forgotEmail';
       renderAuth();
     }
+
     function sendResetOTP(){
-      const email = ($('fp-email')||{}).value?.trim();
-      if(!email){
-        showToast('⚠ Missing Email', 'Enter your email');
-        return;
-      }
-      const stored = localStorage.getItem('aq_user');
-      if(!stored){
-        showToast('❌ No Account', 'No registered account found');
-        return;
-      }
-      const user = JSON.parse(stored);
-      if(user.email !== email){
+  const email = ($('fp-email')||{}).value?.trim().toLowerCase();
+ 
+  if(!email){
+    showToast('⚠ Missing Email', 'Enter your email');
+    return;
+  }
+ 
+  auth.sendPasswordResetEmail(email)
+    .then(() => {
+      showToast('📧 Reset link sent', 'Check your email and follow the link');
+      APP.authStep = 'login';
+      renderAuth();
+    })
+    .catch(err => {
+      console.error(err);
+      if(err.code === 'auth/user-not-found'){
         showToast('❌ Email Not Found', 'This email is not registered');
-        return;
+      } else {
+        showToast('❌ Could not send', 'Check the email address and try again');
       }
-      APP.resetEmail = email;
-      APP.resetOTP = genOTP();
-      emailjs.send("service_pljtgtf","template_j20o1f6",{ email: email, otp_code: APP.resetOTP })
-      .then(()=>{
-        APP.authStep = 'forgotOTP';
-        renderAuth();
-        showToast('📧 OTP Sent', 'Check your email');
-      })
-      .catch((err)=>{
-        console.error(err);
-        showToast('❌ OTP Failed', 'Could not send OTP');
-      });
-    }
+    });
+}
+    
     function verifyResetOTP(){
       const code = ($('fp-otp')||{}).value?.trim();
       if(code !== APP.resetOTP){
