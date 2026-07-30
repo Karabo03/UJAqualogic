@@ -1534,32 +1534,7 @@
       }
     });
 }
-    function saveNewPassword(){
-      const pass = ($('new-reset-pass')||{}).value;
-      const confirm = ($('confirm-reset-pass')||{}).value;
-      if(!pass || !confirm){
-        showToast('⚠ Missing Fields', 'Complete all fields');
-        return;
-      }
-      if(pass.length < 8){
-        showToast('⚠ Weak Password', 'Minimum 8 characters');
-        return;
-      }
-      if(getStrength(pass) < 3){
-        showToast('⚠ Weak Password', 'Please create a stronger password');
-        return;
-      }
-      if(pass !== confirm){
-        showToast('❌ Password Mismatch', 'Passwords do not match');
-        return;
-      }
-      const stored = JSON.parse(localStorage.getItem('aq_user'));
-      stored.pass = pass;
-      localStorage.setItem('aq_user', JSON.stringify(stored));
-      APP.authStep = 'resetSuccess';
-      renderAuth();
-      showToast('✅ Password Updated', 'Your password has been reset successfully');
-    }
+   
     function launchDashboard(){
       $('publicSite').style.display = 'none';
       $('dashboard').style.display = 'block';
