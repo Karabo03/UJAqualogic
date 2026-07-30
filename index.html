@@ -1768,31 +1768,33 @@ Aqua Logic`;
       $('faultModal').setAttribute('aria-hidden','true');
     }
 
-    function sendFaultEmail(){
+  function sendFaultEmail(){
   if(APP.lastEmailSentAt && (Date.now() - APP.lastEmailSentAt < 60000)){
     showToast('⚠ Already sent', 'A report was recently sent');
     return;
   }
  
+  const r = APP.faultReport || buildFaultReport();
   const btn = $('sendFaultBtn');
-  const zones = APP.leakZones.length
-    ? APP.leakZones.map(z => `Zone ${z}`).join(', ')
-    : '—';
-  const reportBody = $('faultEmailBody').textContent;
  
   btn.disabled = true;
   btn.textContent = 'Sending...';
  
   emailjs.send("service_pljtgtf", "template_fault", {
-    email:    "support@ujaqualogic.co.za",
-    subject:  `[URGENT] Water Leak. ${zones}. Aqua Logic`,
-    message:  reportBody,
-    reply_to: APP.user?.email || 'system@aqualogic.co.za'
+    email:          "support@ujaqualogic.co.za",
+    subject:        `[URGENT] Water Leak Detected. ${r.zones}. Aqua Logic`,
+    reply_to:       r.operator_email,
+    zones:          r.zones,
+    datetime:       r.datetime,
+    operator:       r.operator,
+    contact:        r.contact,
+    operator_email: r.operator_email,
+    details:        r.details
   })
   .then(() => {
     APP.lastEmailSentAt = Date.now();
     logEvent('email',
-      `Fault report sent to support@ujaqualogic.co.za for ${zones}`,
+      `Fault report sent to support@ujaqualogic.co.za for ${r.zones}`,
       new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),
       'System');
     closeFault();
@@ -1807,6 +1809,7 @@ Aqua Logic`;
     btn.textContent = 'Send Report';
   });
 }
+    
     function acknowledge(zone){
       logEvent('system',`Zone ${zone}: Incident acknowledged by operator`,new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),`Zone ${zone}`);
       showToast('📝 Acknowledged', `Zone ${zone} acknowledged`);
