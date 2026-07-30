@@ -1193,45 +1193,7 @@
         </div>
       `;
     }
-    function forgotOTPHTML(){
-      return `
-        <div style="display:flex;flex-direction:column;gap:12px">
-          <div style="font-family:var(--font-h);font-size:1.2rem;font-weight:800">Verify OTP</div>
-          <div style="color:#456">Enter the OTP sent to your email</div>
-          <input id="fp-otp" type="text" placeholder="6 digit OTP" style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"/>
-          <button class="ctrl" onclick="verifyResetOTP()">Verify OTP</button>
-        </div>
-      `;
-    }
-    function resetPasswordHTML(){
-      return `
-        <div style="display:flex;flex-direction:column;gap:12px">
-          <div style="font-family:var(--font-h);font-size:1.3rem;font-weight:800">Reset Password</div>
-          <div style="color:#456">Create a strong new password</div>
-          <label style="font-size:.82rem;font-weight:700;color:#245;">New Password</label>
-          <div class="pw-wrap">
-            <input id="new-reset-pass" type="password" placeholder="Create a strong password" oninput="updatePwFeedback(this.value,'resetPwBar','resetPwLbl','resetPwReqs');checkResetConfirm();"/>
-            <button type="button" class="pw-toggle" onclick="toggleEye('new-reset-pass',this)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
-          </div>
-          <div class="pw-strength-bar" id="resetPwBar"><span></span><span></span><span></span><span></span></div>
-          <div class="pw-strength-label" id="resetPwLbl"></div>
-          <div class="pw-reqs" id="resetPwReqs">
-            ${PW_RULES.map(r=>`<div class="pw-req"><div class="req-dot">✓</div><span>${r.label}</span></div>`).join('')}
-          </div>
-          <label style="font-size:.82rem;font-weight:700;color:#245;">Confirm Password</label>
-          <div class="pw-wrap">
-            <input id="confirm-reset-pass" type="password" placeholder="Repeat your password" oninput="checkResetConfirm()"/>
-            <button type="button" class="pw-toggle" onclick="toggleEye('confirm-reset-pass',this)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
-          </div>
-          <div id="resetMatchMsg" style="font-size:.76rem;margin-top:4px;height:14px;font-weight:700;"></div>
-          <button class="ctrl" onclick="saveNewPassword()">Reset Password</button>
-        </div>
-      `;
-    }
+   
     function resetSuccessHTML(){
       return `
         <div style="display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;">
