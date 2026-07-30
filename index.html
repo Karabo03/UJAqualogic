@@ -1740,29 +1740,34 @@
         `).join('')
         : `<div style="text-align:center;padding:30px;color:#6a9ab8;font-size:.95rem">No ${filter} events found</div>`;
     }
-    function openFaultModal(){
-      const zones = APP.leakZones.length ? APP.leakZones.map(z=>`Zone ${z}`).join(', ') : '—';
-      const now = new Date().toLocaleString('en-ZA');
-      const u = APP.user || {};
-      const body = `TO: support@ujaqualogic.co.za 
-FROM: ${u.email || 'system@aqualogic.co.za'}
-SUBJECT: [URGENT] Leak Detected. ${zones}
-Dear Joburg Water Fault Response Team,
-An automated fault has been detected by the Aqua Logic Smart Water Monitoring System.
+   function openFaultModal(){
+  const r = buildFaultReport();
+  APP.faultReport = r;
+ 
+  $('faultEmailBody').textContent =
+`To          : support@ujaqualogic.co.za
+From        : ${r.operator_email}
+Subject     : [URGENT] Water Leak Detected. ${r.zones}
+ 
 INCIDENT REPORT
-Date/Time  : ${now}
-Alert Level: HIGH PRIORITY
-Zones      : ${zones}
-Operator   : ${u.name || 'System'} ${u.surname || ''}
-Contact    : ${u.phone || 'N/A'}
-ANOMALY DETAILS:
-${APP.leakZones.map(z=>` • Zone ${z}: Pressure drop or unexpected flow detected`).join('\n')}
-Please dispatch a response team immediately.
-Aqua Logic`;
-      $('faultEmailBody').textContent = body;
-      $('faultModal').classList.add('show');
-      $('faultModal').setAttribute('aria-hidden','false');
-    }
+ 
+Date and time : ${r.datetime}
+Affected zones: ${r.zones}
+Alert level   : High priority
+Operator      : ${r.operator}
+Contact       : ${r.contact}
+ 
+ANOMALY DETAILS
+ 
+${r.details}
+ 
+Please dispatch a response team to the affected zone as soon as possible.
+ 
+Aqua Logic Monitoring System`;
+ 
+  $('faultModal').classList.add('show');
+  $('faultModal').setAttribute('aria-hidden','false');
+}
     function closeFault(){
       $('faultModal').classList.remove('show');
       $('faultModal').setAttribute('aria-hidden','true');
