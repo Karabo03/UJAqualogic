@@ -1357,22 +1357,58 @@
         });
       }
     }
-    function verifyEmail(){
-      const code = getOTP('#otpEmail');
-      if(code.length < 6){
-        showToast('⚠ Incomplete code', 'Enter the full 6 digit email code');
-        return;
-      }
-      if(code !== APP.emailOTP){
-        showToast('❌ Wrong email code', 'The email OTP does not match');
-        return;
-      }
-      const u = APP.pendingReg;
-      localStorage.setItem('aq_user', JSON.stringify(u));
+  function verifyEmail(){
+  const code = getOTP('#otpEmail');
+ 
+  if(code.length < 6){
+    showToast('⚠ Incomplete code', 'Enter the full 6 digit email code');
+    return;
+  }
+  if(code !== APP.emailOTP){
+    showToast('❌ Wrong email code', 'The email OTP does not match');
+    return;
+  }
+ 
+  const u = APP.pendingReg;
+  if(!u){
+    showToast('⚠ Session expired', 'Please register again');
+    APP.authStep = 'register';
+    renderAuth();
+    return;
+  }
+ 
+  auth.createUserWithEmailAndPassword(u.email, u.pass)
+    .then(cred => {
+      // Profile details go in the database. The password does not.
+      return rtdb.ref('users/' + cred.user.uid).set({
+        name: u.name,
+        surname: u.surname,
+        email: u.email.toLowerCase(),
+        phone: u.phone,
+        createdAt: Date.now()
+      });
+    })
+    .then(() => auth.signOut())
+    .then(() => {
+      APP.pendingReg = null;
       showToast('✅ Registration complete', 'Please login with your new account');
       APP.authStep = 'login';
       renderAuth();
-    }
+    })
+    .catch(err => {
+      console.error(err);
+      if(err.code === 'auth/email-already-in-use'){
+        showToast('⚠ Already registered', 'This email already has an account. Please sign in.');
+        APP.authStep = 'login';
+        renderAuth();
+      } else if(err.code === 'auth/weak-password'){
+        showToast('⚠ Weak password', 'Firebase needs at least 6 characters');
+      } else {
+        showToast('❌ Registration failed', err.message || 'Please try again');
+      }
+    });
+}
+    
     function sendPhoneOtp(){
       if(!APP.pendingReg?.phone){
         showToast('⚠ Missing phone number', 'Phone number not found');
