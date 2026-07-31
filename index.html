@@ -1,3 +1,23 @@
+
+/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Index · HTML
 <!doctype html>
 <html lang="en">
 <head>
@@ -782,35 +802,42 @@
     }
     .zone-pressure .zp-label{color:#8fc4e0;}
     .zone-pressure .zp-val{font-family:var(--font-m);font-weight:700;color:#fff;}
+    .flow-grid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:14px;
+      margin-top:16px;
+    }
     @media(max-width:980px){
       .top-row{grid-template-columns:1fr;}
       .zones-grid{grid-template-columns:1fr;}
       .pressure-grid{grid-template-columns:repeat(2,1fr);}
+      .flow-grid{grid-template-columns:1fr;}
     }
-
     @media (max-width: 720px){
-  .dash-topbar{ flex-wrap:wrap; gap:10px; padding:12px 14px; }
-  .dash-topbar > div,
-  .dash-topbar > div > div{ flex-wrap:wrap; min-width:0; }
-  .system-status{ font-size:.72rem; }
-  .dash-body{ padding:14px; }
-  .metric-card, .tank-card, .zone-card{ padding:16px; }
-  .tank-card > div{ flex-wrap:wrap; }
-  .tank-3d{ width:70px; height:130px; }
-  .mc-val{ font-size:2rem; }
-  .pressure-grid{ grid-template-columns:1fr 1fr; gap:10px; }
-  .p-val{ font-size:1.4rem; }
-  .ctrl{ padding:8px 10px; font-size:.85rem; }
-  .controls{ width:100%; }
-  .toast{ max-width:calc(100vw - 40px); }
-  .toast-pile{ right:10px; left:10px; }
-  .faq-section{ padding:60px 16px 50px; }
-  .history-head{ flex-wrap:wrap; gap:8px; }
-}
-@media (max-width: 420px){
-  .pressure-grid{ grid-template-columns:1fr; }
-  .dash-topbar .ctrl{ font-size:.8rem; }
-}
+      .dash-topbar{ flex-wrap:wrap; gap:10px; padding:12px 14px; }
+      .dash-topbar > div,
+      .dash-topbar > div > div{ flex-wrap:wrap; min-width:0; }
+      .system-status{ font-size:.72rem; }
+      .dash-body{ padding:14px; }
+      .metric-card, .tank-card, .zone-card{ padding:16px; }
+      .tank-card > div{ flex-wrap:wrap; }
+      .tank-3d{ width:70px; height:130px; }
+      .mc-val{ font-size:2rem; }
+      .pressure-grid{ grid-template-columns:1fr 1fr; gap:10px; }
+      .flow-grid{ grid-template-columns:1fr; gap:10px; }
+      .p-val{ font-size:1.4rem; }
+      .ctrl{ padding:8px 10px; font-size:.85rem; }
+      .controls{ width:100%; }
+      .toast{ max-width:calc(100vw - 40px); }
+      .toast-pile{ right:10px; left:10px; }
+      .faq-section{ padding:60px 16px 50px; }
+      .history-head{ flex-wrap:wrap; gap:8px; }
+    }
+    @media (max-width: 420px){
+      .pressure-grid{ grid-template-columns:1fr; }
+      .dash-topbar .ctrl{ font-size:.8rem; }
+    }
   </style>
 </head>
 <body>
@@ -939,6 +966,13 @@
         </div>
         <div class="pressure-grid" id="pressureGrid" aria-live="polite"></div>
       </div>
+      <div class="metric-card" style="margin-top:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div class="mc-label" style="margin-bottom:0">🚰 Water Flow</div>
+          <div id="flowSummary" style="font-family:var(--font-m);font-size:.75rem;color:#7dd8f0"></div>
+        </div>
+        <div class="flow-grid" id="flowGrid" aria-live="polite"></div>
+      </div>
       <div class="zones-section" style="margin-top:16px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
           <h3 style="color:#e0f4ff;font-family:var(--font-h);font-size:1.1rem;">🔍 Sensor Zones</h3>
@@ -1004,7 +1038,6 @@
       {id:'B', num:2, name:'Zone Beta',    desc:'Central Pipeline'},
       {id:'C', num:3, name:'Zone Charlie', desc:'Southern Grid'}
     ];
-
     // ============================================================
     // PRESSURE SETTINGS
     // These mirror the Arduino sketch. readPressureSensors() maps
@@ -1016,26 +1049,33 @@
     const PRESSURE_UNIT     = 'bar';
     const LEAK_DROP_RAW     = 100;   // 1.00 bar, same as detectLeak()
     const PRESSURE_DECIMALS = 2;     // set to 1 to match the OLED exactly
-
     const PRESSURE_POINTS = [
       { key:'p0', tag:'P0', name:'Pipeline Inlet' },
       { key:'p1', tag:'P1', name:'After Zone A' },
       { key:'p2', tag:'P2', name:'After Zone B' },
       { key:'p3', tag:'P3', name:'Pipeline Outlet' }
     ];
-
+    // ============================================================
+    // FLOW SETTINGS
+    // Total volume past each flow sensor, in litres.
+    // F1 sits at the reservoir outlet, F2 at the pipeline end.
+    // Water that goes in but never comes out is the clearest
+    // physical sign of a leak, so the gap gets its own tile.
+    // ============================================================
+    const FLOW_UNIT       = 'L';
+    const FLOW_DIVISOR    = 1;   // set to 100 if the ESP32 sends litres x100
+    const FLOW_DECIMALS   = 1;
+    const FLOW_LOSS_LIMIT = 5;   // litres unaccounted for before the tile turns red
     // Which two pressure points sit either side of each zone.
     // Matches determineLeakZone() in the sketch: zone 1 is the
     // drop from P0 to P1, zone 2 from P1 to P2, zone 3 from P2 to P3.
     const ZONE_SEGMENTS = { A:['p0','p1'], B:['p1','p2'], C:['p2','p3'] };
-
     function toBar(raw){
       return Number(raw) / PRESSURE_DIVISOR;
     }
     function barText(raw){
       return toBar(raw).toFixed(PRESSURE_DECIMALS);
     }
-
     const APP = {
       user: null,
       pendingReg: null,
@@ -1065,7 +1105,7 @@
     ];
     const FAQS = [
       {q:"What is Aqua Logic?",a:"Aqua Logic is a smart water intelligence platform that monitors water infrastructure in real time, tracks reservoir levels, and detects leaks across Zones A, B, and C."},
-      {q:"How does leak detection work?",a:"Four pressure sensors sit along the pipeline. The system watches the pressure drop between each pair. When a drop passes the safe limit, the zone between those two sensors is flagged as leaking."},
+      {q:"How does leak detection work?",a:"Four pressure sensors sit along the pipeline. The system watches the pressure drop between each pair. When a drop passes the safe limit, the zone between those two sensors is flagged as leaking. Two flow sensors then confirm it by comparing the water that entered the line against the water that came out."},
       {q:"Why verify email and phone?",a:"Verification confirms that the operator contact details are real and reachable. Email is checked first. Phone is checked second."},
       {q:"What happens when a leak is detected?",a:"The affected zone turns into an alert state, an incident is logged, and a fault report can be prepared for the response team."}
     ];
@@ -1355,7 +1395,6 @@
       const phone = normalizePhoneNumber(phoneRaw);
       const pass = ($('rg-pass')||{}).value || '';
       const conf = ($('rg-conf')||{}).value || '';
-
       // Empty check runs first so a blank form does not show the
       // wrong "not authorised" message.
       if(!name || !surname || !email || !phone || !pass || !conf){
@@ -1417,7 +1456,6 @@
     // the same login works on any phone or laptop.
     function verifyEmail(){
       const code = getOTP('#otpEmail');
-
       if(code.length < 6){
         showToast('⚠ Incomplete code', 'Enter the full 6 digit email code');
         return;
@@ -1426,7 +1464,6 @@
         showToast('❌ Wrong email code', 'The email OTP does not match');
         return;
       }
-
       const u = APP.pendingReg;
       if(!u){
         showToast('⚠ Session expired', 'Please register again');
@@ -1434,7 +1471,6 @@
         renderAuth();
         return;
       }
-
       auth.createUserWithEmailAndPassword(u.email, u.pass)
         .then(cred => {
           // Profile details go in the database. The password does not.
@@ -1510,7 +1546,6 @@
     // so this step only has to confirm the emailed OTP.
     function doLogin(){
       const otp = ($('li-otp')||{}).value?.trim();
-
       if(!otp){
         showToast('⚠ Missing OTP', 'Enter the code sent to your email');
         return;
@@ -1523,7 +1558,6 @@
         showToast('❌ Wrong OTP', 'Incorrect verification code');
         return;
       }
-
       APP.user = APP.pendingLogin;
       APP.pendingLogin = null;
       closeAuth();
@@ -1536,12 +1570,10 @@
     }
     function sendResetOTP(){
       const email = ($('fp-email')||{}).value?.trim().toLowerCase();
-
       if(!email){
         showToast('⚠ Missing Email', 'Enter your email');
         return;
       }
-
       auth.sendPasswordResetEmail(email)
         .then(() => {
           showToast('📧 Reset link sent', 'Check your email and follow the link');
@@ -1562,7 +1594,6 @@
     function startLoginOTP(){
       const email = ($('li-email')||{}).value?.trim().toLowerCase();
       const pass  = ($('li-pass')||{}).value;
-
       if(!email || !pass){
         showToast('⚠ Missing details', 'Enter email and password first');
         return;
@@ -1571,7 +1602,6 @@
         showToast('🔒 Unauthorized Access', 'Your account is not approved for Aqua Logic platform access. Please contact your administrator.');
         return;
       }
-
       auth.signInWithEmailAndPassword(email, pass)
         .then(cred => rtdb.ref('users/' + cred.user.uid).get())
         .then(snap => {
@@ -1620,6 +1650,7 @@
       updateTime();
       seedHistory();
       renderPressure(null);
+      renderFlow(null);
       renderZones({});
       startLiveData();
     }
@@ -1680,6 +1711,7 @@
       $('tankPctLbl').textContent = lvl + '%';
       updateLevelStatus(lvl);
       renderPressure(data);
+      renderFlow(data);
       renderZones(data);
     }
     // Mirrors the physical LED level indicator on the device:
@@ -1750,20 +1782,16 @@
     function renderPressure(data){
       const grid = $('pressureGrid');
       if(!grid) return;
-
       const p = data?.pressure || {};
       const readings = [];
-
       grid.innerHTML = PRESSURE_POINTS.map(pt => {
         const raw = p[pt.key];
         const has = raw !== undefined && raw !== null && !isNaN(Number(raw));
         const val = has ? Number(raw) : 0;
         if(has) readings.push(val);
-
         const pct = has ? Math.min(100, Math.max(0, (val / PRESSURE_RAW_MAX) * 100)) : 0;
         const c = has ? pressureColour(val)
                       : { bar:'#1e4060', text:'rgba(255,255,255,.35)' };
-
         return `
           <div class="p-point">
             <div class="p-tag">${pt.tag}</div>
@@ -1776,7 +1804,6 @@
             </div>
           </div>`;
       }).join('');
-
       const sum = $('pressureSummary');
       if(sum){
         if(readings.length === PRESSURE_POINTS.length){
@@ -1784,6 +1811,74 @@
           sum.textContent = `Inlet to outlet drop: ${drop.toFixed(PRESSURE_DECIMALS)} ${PRESSURE_UNIT}`;
         } else {
           sum.textContent = 'Waiting for sensor data';
+        }
+      }
+    }
+    // ============================================================
+    // WATER FLOW
+    // Reads /aqualogic/flow/in and /aqualogic/flow/out, both in
+    // litres. The third tile is the gap between them, which is the
+    // volume that entered the pipeline but never reached the end.
+    // ============================================================
+    function renderFlow(data){
+      const grid = $('flowGrid');
+      if(!grid) return;
+      const f      = data?.flow || {};
+      const rawIn  = f.in;
+      const rawOut = f.out;
+      const hasIn  = rawIn  !== undefined && rawIn  !== null && !isNaN(Number(rawIn));
+      const hasOut = rawOut !== undefined && rawOut !== null && !isNaN(Number(rawOut));
+      const hasBoth = hasIn && hasOut;
+      const vIn  = hasIn  ? Number(rawIn)  / FLOW_DIVISOR : 0;
+      const vOut = hasOut ? Number(rawOut) / FLOW_DIVISOR : 0;
+      const loss = hasBoth ? (vIn - vOut) : 0;
+      const lossHigh = hasBoth && loss >= FLOW_LOSS_LIMIT;
+      const outPct  = (hasBoth && vIn > 0) ? Math.min(100, Math.max(0, (vOut / vIn) * 100)) : 0;
+      const lossPct = (hasBoth && vIn > 0) ? Math.min(100, Math.max(0, (loss / vIn) * 100)) : 0;
+      const green = 'linear-gradient(90deg,#00915f,#00e5a0)';
+      const red   = 'linear-gradient(90deg,#b71c1c,#f44336)';
+      const idle  = '#1e4060';
+      const dim   = 'rgba(255,255,255,.35)';
+      grid.innerHTML = `
+        <div class="p-point">
+          <div class="p-tag">F1</div>
+          <div class="p-name">Flow In. Reservoir Outlet</div>
+          <div class="p-val" style="color:${hasIn ? '#ffffff' : dim}">
+            ${hasIn ? vIn.toFixed(FLOW_DECIMALS) : '—'}<span class="p-unit">${FLOW_UNIT}</span>
+          </div>
+          <div class="p-bar-bg">
+            <div class="p-bar-fill" style="width:${hasIn ? 100 : 0}%;background:${hasIn ? green : idle}"></div>
+          </div>
+        </div>
+        <div class="p-point">
+          <div class="p-tag">F2</div>
+          <div class="p-name">Flow Out. Pipeline End</div>
+          <div class="p-val" style="color:${hasOut ? '#ffffff' : dim}">
+            ${hasOut ? vOut.toFixed(FLOW_DECIMALS) : '—'}<span class="p-unit">${FLOW_UNIT}</span>
+          </div>
+          <div class="p-bar-bg">
+            <div class="p-bar-fill" style="width:${outPct}%;background:${hasOut ? green : idle}"></div>
+          </div>
+        </div>
+        <div class="p-point" style="${lossHigh ? 'border-color:#d32f2f;background:#2a0a0a;' : ''}">
+          <div class="p-tag">F1 − F2</div>
+          <div class="p-name">Unaccounted Water</div>
+          <div class="p-val" style="color:${!hasBoth ? dim : (lossHigh ? '#ff6b5e' : '#00e5a0')}">
+            ${hasBoth ? loss.toFixed(FLOW_DECIMALS) : '—'}<span class="p-unit">${FLOW_UNIT}</span>
+          </div>
+          <div class="p-bar-bg">
+            <div class="p-bar-fill" style="width:${lossPct}%;background:${lossHigh ? red : green}"></div>
+          </div>
+        </div>`;
+      const sum = $('flowSummary');
+      if(sum){
+        if(hasBoth){
+          const pct = vIn > 0 ? (vOut / vIn) * 100 : 0;
+          sum.textContent = `Delivered ${pct.toFixed(1)}% of inflow. Loss ${loss.toFixed(FLOW_DECIMALS)} ${FLOW_UNIT}`;
+          sum.style.color = lossHigh ? '#ff6b5e' : '#7dd8f0';
+        } else {
+          sum.textContent = 'Waiting for flow sensor data';
+          sum.style.color = '#7dd8f0';
         }
       }
     }
@@ -1815,7 +1910,6 @@
           slbl='Sensor Offline';
           ssub='No data from device yet';
         }
-
         // Pressure either side of this zone, taken straight from
         // the two sensors that bracket it.
         const seg  = ZONE_SEGMENTS[z.id] || [];
@@ -1825,7 +1919,6 @@
         const dropRaw = hasP ? (pIn - pOut) : 0;
         const dropColour = !hasP ? '#8fc4e0'
                          : (dropRaw >= LEAK_DROP_RAW ? '#ff6b5e' : '#00e5a0');
-
         const pressureRow = `
           <div class="zone-pressure">
             <span class="zp-label">${(seg[0]||'').toUpperCase()} in / ${(seg[1]||'').toUpperCase()} out</span>
@@ -1835,7 +1928,6 @@
             <span class="zp-label">Pressure drop</span>
             <span class="zp-val" style="color:${dropColour}">${hasP ? (dropRaw / PRESSURE_DIVISOR).toFixed(PRESSURE_DECIMALS) + ' ' + PRESSURE_UNIT : '—'}</span>
           </div>`;
-
         const card = document.createElement('div');
         card.className = 'zone-card' + (leak ? ' leak-zone' : '');
         card.innerHTML = `
@@ -1921,13 +2013,20 @@
       const zones = APP.leakZones.length
         ? APP.leakZones.map(z => `Zone ${z}`).join(', ')
         : 'None';
-
+      // Flow figures go into the report as supporting evidence.
+      const fIn  = Number(APP.liveData?.flow?.in);
+      const fOut = Number(APP.liveData?.flow?.out);
+      const hasFlow = !isNaN(fIn) && !isNaN(fOut);
+      const flowLine = hasFlow
+        ? `Flow in ${(fIn / FLOW_DIVISOR).toFixed(FLOW_DECIMALS)} ${FLOW_UNIT}, flow out ${(fOut / FLOW_DIVISOR).toFixed(FLOW_DECIMALS)} ${FLOW_UNIT}, unaccounted ${((fIn - fOut) / FLOW_DIVISOR).toFixed(FLOW_DECIMALS)} ${FLOW_UNIT}`
+        : 'Flow sensor data not available';
       return {
         zones: zones,
         datetime: new Date().toLocaleString('en-ZA', { dateStyle:'full', timeStyle:'short' }),
         operator: `${u.name || 'System'} ${u.surname || ''}`.trim(),
         contact: u.phone || 'Not provided',
         operator_email: u.email || 'system@aqualogic.co.za',
+        flow: flowLine,
         details: APP.leakZones.length
           ? APP.leakZones.map(z => {
               const seg  = ZONE_SEGMENTS[z] || [];
@@ -1945,28 +2044,22 @@
     function openFaultModal(){
       const r = buildFaultReport();
       APP.faultReport = r;
-
       $('faultEmailBody').textContent =
 `To          : support@ujaqualogic.co.za
 From        : ${r.operator_email}
 Subject     : [URGENT] Water Leak Detected. ${r.zones}
-
 INCIDENT REPORT
-
 Date and time : ${r.datetime}
 Affected zones: ${r.zones}
 Alert level   : High priority
 Operator      : ${r.operator}
 Contact       : ${r.contact}
-
 ANOMALY DETAILS
-
 ${r.details}
-
+WATER BALANCE
+${r.flow}
 Please dispatch a response team to the affected zone as soon as possible.
-
 Aqua Logic Monitoring System`;
-
       $('faultModal').classList.add('show');
       $('faultModal').setAttribute('aria-hidden','false');
     }
@@ -1981,13 +2074,10 @@ Aqua Logic Monitoring System`;
         showToast('⚠ Already sent', 'A report was recently sent');
         return;
       }
-
       const r = APP.faultReport || buildFaultReport();
       const btn = $('sendFaultBtn');
-
       btn.disabled = true;
       btn.textContent = 'Sending...';
-
       emailjs.send("service_pljtgtf", "template_fault", {
         email:          "support@ujaqualogic.co.za",
         subject:        `[URGENT] Water Leak Detected. ${r.zones}. Aqua Logic`,
@@ -1997,6 +2087,7 @@ Aqua Logic Monitoring System`;
         operator:       r.operator,
         contact:        r.contact,
         operator_email: r.operator_email,
+        flow:           r.flow,
         details:        r.details
       })
       .then(() => {
@@ -2025,11 +2116,11 @@ Aqua Logic Monitoring System`;
     }
     // Local only demo trigger, for testing the dashboard before the
     // ESP32 is running. Builds a believable pressure profile with a
-    // 1.50 bar collapse across the chosen zone. Writes nothing to
+    // 1.50 bar collapse across the chosen zone, plus a matching
+    // shortfall between flow in and flow out. Writes nothing to
     // Firebase.
     function simulateLeak(zoneId){
       APP.forcedLeakZone = zoneId || (['A','B','C'])[Math.floor(Math.random()*3)];
-
       const seg = ZONE_SEGMENTS[APP.forcedLeakZone] || [];
       let val = 850;
       const fake = {};
@@ -2037,11 +2128,18 @@ Aqua Logic Monitoring System`;
         fake[pt.key] = Math.round(val);
         val -= (pt.key === seg[0]) ? 150 : 15;
       });
-
-      APP.liveData = Object.assign({}, APP.liveData || {}, { pressure: fake });
-
+      const fakeIn  = 120 + Math.random() * 30;
+      const fakeOut = fakeIn - (8 + Math.random() * 6);
+      APP.liveData = Object.assign({}, APP.liveData || {}, {
+        pressure: fake,
+        flow: {
+          in:  Number(fakeIn.toFixed(1)),
+          out: Number(fakeOut.toFixed(1))
+        }
+      });
       showToast('⚠ Demo leak', 'A demo leak has been triggered: ' + APP.forcedLeakZone);
       renderPressure(APP.liveData);
+      renderFlow(APP.liveData);
       renderZones(APP.liveData);
     }
     function setEl(id,val){
@@ -2057,3 +2155,5 @@ Aqua Logic Monitoring System`;
   </script>
 </body>
 </html>
+ 
+
