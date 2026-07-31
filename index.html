@@ -787,6 +787,30 @@
       .zones-grid{grid-template-columns:1fr;}
       .pressure-grid{grid-template-columns:repeat(2,1fr);}
     }
+
+    @media (max-width: 720px){
+  .dash-topbar{ flex-wrap:wrap; gap:10px; padding:12px 14px; }
+  .dash-topbar > div,
+  .dash-topbar > div > div{ flex-wrap:wrap; min-width:0; }
+  .system-status{ font-size:.72rem; }
+  .dash-body{ padding:14px; }
+  .metric-card, .tank-card, .zone-card{ padding:16px; }
+  .tank-card > div{ flex-wrap:wrap; }
+  .tank-3d{ width:70px; height:130px; }
+  .mc-val{ font-size:2rem; }
+  .pressure-grid{ grid-template-columns:1fr 1fr; gap:10px; }
+  .p-val{ font-size:1.4rem; }
+  .ctrl{ padding:8px 10px; font-size:.85rem; }
+  .controls{ width:100%; }
+  .toast{ max-width:calc(100vw - 40px); }
+  .toast-pile{ right:10px; left:10px; }
+  .faq-section{ padding:60px 16px 50px; }
+  .history-head{ flex-wrap:wrap; gap:8px; }
+}
+@media (max-width: 420px){
+  .pressure-grid{ grid-template-columns:1fr; }
+  .dash-topbar .ctrl{ font-size:.8rem; }
+}
   </style>
 </head>
 <body>
