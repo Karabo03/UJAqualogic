@@ -1,3 +1,31 @@
+
+/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Index · HTML
 <!doctype html>
 <html lang="en">
 <head>
@@ -1037,15 +1065,18 @@
     ];
     // ============================================================
     // FLOW SETTINGS
-    // Total volume past each flow sensor, in litres.
+    // Rate of water past each flow sensor, in litres per minute.
+    // readFlowSensors() maps each pot from 0-4095 to 0-100, so
+    // 100 in Firebase means 100 L/min.
     // F1 sits at the reservoir outlet, F2 at the pipeline end.
-    // Water that goes in but never comes out is the clearest
+    // Water going in faster than it comes out is the clearest
     // physical sign of a leak, so the gap gets its own tile.
     // ============================================================
-    const FLOW_UNIT       = 'L';
-    const FLOW_DIVISOR    = 1;   // set to 100 if the ESP32 sends litres x100
+    const FLOW_UNIT       = 'L/min';
+    const FLOW_MAX        = 100;  // matches map(raw,0,4095,0,100) in the sketch
+    const FLOW_DIVISOR    = 1;    // set to 10 if the ESP32 ever sends L/min x10
     const FLOW_DECIMALS   = 1;
-    const FLOW_LOSS_LIMIT = 5;   // litres unaccounted for before the tile turns red
+    const FLOW_LOSS_LIMIT = 10;   // same threshold as detectLeak() in the sketch
     // Which two pressure points sit either side of each zone.
     // Matches determineLeakZone() in the sketch: zone 1 is the
     // drop from P0 to P1, zone 2 from P1 to P2, zone 3 from P2 to P3.
@@ -1797,8 +1828,9 @@
     // ============================================================
     // WATER FLOW
     // Reads /aqualogic/flow/in and /aqualogic/flow/out, both in
-    // litres. The third tile is the gap between them, which is the
-    // volume that entered the pipeline but never reached the end.
+    // litres per minute. The third tile is the gap between them.
+    // Water entering faster than it leaves means it is escaping
+    // somewhere along the line.
     // ============================================================
     function renderFlow(data){
       const grid = $('flowGrid');
@@ -1811,10 +1843,13 @@
       const hasBoth = hasIn && hasOut;
       const vIn  = hasIn  ? Number(rawIn)  / FLOW_DIVISOR : 0;
       const vOut = hasOut ? Number(rawOut) / FLOW_DIVISOR : 0;
-      const loss = hasBoth ? (vIn - vOut) : 0;
-      const lossHigh = hasBoth && loss >= FLOW_LOSS_LIMIT;
-      const outPct  = (hasBoth && vIn > 0) ? Math.min(100, Math.max(0, (vOut / vIn) * 100)) : 0;
-      const lossPct = (hasBoth && vIn > 0) ? Math.min(100, Math.max(0, (loss / vIn) * 100)) : 0;
+      const gap  = hasBoth ? (vIn - vOut) : 0;
+      const gapHigh = hasBoth && Math.abs(gap) >= FLOW_LOSS_LIMIT;
+      // F1 and F2 bars are shown against the full sensor range.
+      // The gap bar fills as it climbs toward the leak threshold.
+      const inPct  = hasIn  ? Math.min(100, Math.max(0, (vIn  / FLOW_MAX) * 100)) : 0;
+      const outPct = hasOut ? Math.min(100, Math.max(0, (vOut / FLOW_MAX) * 100)) : 0;
+      const gapPct = hasBoth ? Math.min(100, Math.max(0, (Math.abs(gap) / FLOW_LOSS_LIMIT) * 100)) : 0;
       const green = 'linear-gradient(90deg,#00915f,#00e5a0)';
       const red   = 'linear-gradient(90deg,#b71c1c,#f44336)';
       const idle  = '#1e4060';
@@ -1827,7 +1862,7 @@
             ${hasIn ? vIn.toFixed(FLOW_DECIMALS) : '—'}<span class="p-unit">${FLOW_UNIT}</span>
           </div>
           <div class="p-bar-bg">
-            <div class="p-bar-fill" style="width:${hasIn ? 100 : 0}%;background:${hasIn ? green : idle}"></div>
+            <div class="p-bar-fill" style="width:${inPct}%;background:${hasIn ? green : idle}"></div>
           </div>
         </div>
         <div class="p-point">
@@ -1840,22 +1875,22 @@
             <div class="p-bar-fill" style="width:${outPct}%;background:${hasOut ? green : idle}"></div>
           </div>
         </div>
-        <div class="p-point" style="${lossHigh ? 'border-color:#d32f2f;background:#2a0a0a;' : ''}">
+        <div class="p-point" style="${gapHigh ? 'border-color:#d32f2f;background:#2a0a0a;' : ''}">
           <div class="p-tag">F1 − F2</div>
-          <div class="p-name">Unaccounted Water</div>
-          <div class="p-val" style="color:${!hasBoth ? dim : (lossHigh ? '#ff6b5e' : '#00e5a0')}">
-            ${hasBoth ? loss.toFixed(FLOW_DECIMALS) : '—'}<span class="p-unit">${FLOW_UNIT}</span>
+          <div class="p-name">Flow Imbalance</div>
+          <div class="p-val" style="color:${!hasBoth ? dim : (gapHigh ? '#ff6b5e' : '#00e5a0')}">
+            ${hasBoth ? gap.toFixed(FLOW_DECIMALS) : '—'}<span class="p-unit">${FLOW_UNIT}</span>
           </div>
           <div class="p-bar-bg">
-            <div class="p-bar-fill" style="width:${lossPct}%;background:${lossHigh ? red : green}"></div>
+            <div class="p-bar-fill" style="width:${gapPct}%;background:${gapHigh ? red : green}"></div>
           </div>
         </div>`;
       const sum = $('flowSummary');
       if(sum){
         if(hasBoth){
           const pct = vIn > 0 ? (vOut / vIn) * 100 : 0;
-          sum.textContent = `Delivered ${pct.toFixed(1)}% of inflow. Loss ${loss.toFixed(FLOW_DECIMALS)} ${FLOW_UNIT}`;
-          sum.style.color = lossHigh ? '#ff6b5e' : '#7dd8f0';
+          sum.textContent = `Outflow is ${pct.toFixed(1)}% of inflow. Imbalance ${gap.toFixed(FLOW_DECIMALS)} ${FLOW_UNIT}, limit ${FLOW_LOSS_LIMIT} ${FLOW_UNIT}`;
+          sum.style.color = gapHigh ? '#ff6b5e' : '#7dd8f0';
         } else {
           sum.textContent = 'Waiting for flow sensor data';
           sum.style.color = '#7dd8f0';
@@ -1998,7 +2033,7 @@
       const fOut = Number(APP.liveData?.flow?.out);
       const hasFlow = !isNaN(fIn) && !isNaN(fOut);
       const flowLine = hasFlow
-        ? `Flow in ${(fIn / FLOW_DIVISOR).toFixed(FLOW_DECIMALS)} ${FLOW_UNIT}, flow out ${(fOut / FLOW_DIVISOR).toFixed(FLOW_DECIMALS)} ${FLOW_UNIT}, unaccounted ${((fIn - fOut) / FLOW_DIVISOR).toFixed(FLOW_DECIMALS)} ${FLOW_UNIT}`
+        ? `Flow in ${(fIn / FLOW_DIVISOR).toFixed(FLOW_DECIMALS)} ${FLOW_UNIT}, flow out ${(fOut / FLOW_DIVISOR).toFixed(FLOW_DECIMALS)} ${FLOW_UNIT}, imbalance ${((fIn - fOut) / FLOW_DIVISOR).toFixed(FLOW_DECIMALS)} ${FLOW_UNIT}`
         : 'Flow sensor data not available';
       return {
         zones: zones,
@@ -2108,8 +2143,8 @@ Aqua Logic Monitoring System`;
         fake[pt.key] = Math.round(val);
         val -= (pt.key === seg[0]) ? 150 : 15;
       });
-      const fakeIn  = 120 + Math.random() * 30;
-      const fakeOut = fakeIn - (8 + Math.random() * 6);
+      const fakeIn  = 60 + Math.random() * 20;
+      const fakeOut = fakeIn - (12 + Math.random() * 6);
       APP.liveData = Object.assign({}, APP.liveData || {}, {
         pressure: fake,
         flow: {
