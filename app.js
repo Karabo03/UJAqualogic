@@ -688,7 +688,7 @@ function launchDashboard(){
   $('dashUserName').textContent = APP.user?.name || 'Operator';
   $('dashWelcome').textContent = `Welcome , ${APP.user?.name || 'Operator'} 👋`;
   updateTime();
-  seedHistory();
+  startIncidentLog();
   renderPressure(null);
   renderFlow(null);
   renderZones({});
@@ -706,6 +706,7 @@ function logout(){
   $('publicSite').style.display = 'block';
   $('dashboard').setAttribute('aria-hidden','true');
   stopLiveData();
+  stopIncidentLog();
   showToast('👋 Logged out', 'You have been signed out');
 }
 function updateTime(){
@@ -1020,17 +1021,54 @@ function renderZones(data){
 
 // ============================================================
 // INCIDENT HISTORY
+// Incidents are saved in Firebase under /incidents, so the list
+// survives a refresh, a logout, and a change of device. Every
+// operator sees the same history.
+//
+// Note on the path. This deliberately sits OUTSIDE /aqualogic.
+// The ESP32 sends an HTTP PUT to /aqualogic.json every 2 seconds,
+// and a PUT replaces that whole node. Anything stored inside it
+// would be erased on the next sensor push.
 // ============================================================
-function seedHistory(){
-  APP.incidentLog = [
-    {type:'system',msg:'Dashboard connected. Waiting for device data',time: new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),zone:'System'}
-  ];
-  renderHistoryBody('all');
+let incidentRef = null;
+
+// Opens a live listener on the stored history. It fires once
+// straight away with everything already saved, then again each
+// time a new incident is written, by this operator or any other.
+function startIncidentLog(){
+  if(incidentRef) return;
+  incidentRef = rtdb.ref('/incidents').limitToLast(100);
+  incidentRef.on('value', (snap) => {
+    const rows = [];
+    snap.forEach(child => { rows.push(child.val()); });
+    // Firebase hands them back oldest first. The panel shows
+    // newest at the top, so the order is flipped here.
+    APP.incidentLog = rows.reverse();
+    renderHistoryBody(APP.activeFilter || 'all');
+  }, (err) => {
+    console.error('Incident history read failed', err);
+    showToast('⚠ History unavailable', 'Could not load past incidents');
+  });
 }
+function stopIncidentLog(){
+  if(incidentRef) incidentRef.off();
+  incidentRef = null;
+}
+// Saves one incident. Nothing is added to the on screen list
+// here on purpose. The listener above receives the new entry
+// and redraws, which keeps every open dashboard in step.
 function logEvent(type,msg,time,zone){
-  APP.incidentLog.unshift({type,msg,time,zone});
-  if(APP.incidentLog.length>120) APP.incidentLog.pop();
-  renderHistoryBody(APP.activeFilter || 'all');
+  rtdb.ref('/incidents').push({
+    type:     type,
+    msg:      msg,
+    time:     time,
+    zone:     zone || 'System',
+    operator: APP.user?.name || 'System',
+    ts:       Date.now()
+  }).catch(err => {
+    console.error('Could not save incident', err);
+    showToast('⚠ Not saved', 'The incident could not be written to the database');
+  });
 }
 function openHistory(){
   renderHistoryBody(APP.activeFilter || 'all');
@@ -1050,15 +1088,22 @@ function renderHistoryBody(filter){
   const filtered = (!filter || filter==='all') ? APP.incidentLog : APP.incidentLog.filter(e=>e.type===filter);
   const body = $('historyBody');
   body.innerHTML = filtered.length
-    ? filtered.map(e=>`
+    ? filtered.map(e=>{
+        // The history now spans several days, so the date is
+        // shown as well. Older entries saved before this change
+        // only have a time, so that is used as a fallback.
+        const when = e.ts
+          ? new Date(e.ts).toLocaleString('en-ZA',{dateStyle:'short',timeStyle:'short'})
+          : (e.time || '');
+        return `
       <div class="h-item">
         <div class="h-item-icon" style="background:${e.type==='leak'?'#ffecec':e.type==='normal'?'#f0fff4':'#f0fbff'}">${icons[e.type]||'ℹ️'}</div>
         <div>
           <div class="h-item-title">${e.msg}</div>
-          <div class="h-item-meta"><span>🕐 ${e.time}</span><span>📍 ${e.zone||'System'}</span></div>
+          <div class="h-item-meta"><span>🕐 ${when}</span><span>📍 ${e.zone||'System'}</span><span>👤 ${e.operator||'System'}</span></div>
         </div>
-      </div>
-    `).join('')
+      </div>`;
+      }).join('')
     : `<div style="text-align:center;padding:30px;color:#6a9ab8;font-size:.95rem">No ${filter} events found</div>`;
 }
 
