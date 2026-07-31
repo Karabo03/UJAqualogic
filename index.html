@@ -1,12 +1,10 @@
 <!doctype html>
 <html lang="en">
 <head>
-
   <meta charset="utf-8" />
   <link rel="icon" type="image/png" href="favicon.png">
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Aqua Logic.co.za</title>
-
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -16,9 +14,7 @@
     // ============================================================
     // FIREBASE SETUP
     // This connects the dashboard to the same Realtime Database
-    // the ESP32 writes to. Fill in databaseURL once Realtime
-    // Database is enabled in the Firebase console (it looks like
-    // https://ujaqualogic-default-rtdb.firebaseio.com).
+    // the ESP32 writes to.
     // ============================================================
     const firebaseConfig = {
       apiKey: "AIzaSyDMbm0-d845ktQCKCrQKGuIIuB22wo9a1A",
@@ -35,7 +31,6 @@
     const rtdb = firebase.database();
     let recaptchaVerifier = null;
     let confirmationResult = null;
-
     (function () {
       emailjs.init("njE3wzHhlXzpcVbHf");
     })();
@@ -723,9 +718,74 @@
       margin-top:14px;
       display:none;
     }
+    .pressure-grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:14px;
+      margin-top:16px;
+    }
+    .p-point{
+      background:#051e38;
+      border:1px solid #1e5080;
+      border-radius:12px;
+      padding:14px 16px;
+    }
+    .p-tag{
+      font-family:var(--font-m);
+      font-size:.68rem;
+      letter-spacing:1.5px;
+      text-transform:uppercase;
+      color:#5bc8ec;
+    }
+    .p-name{
+      font-size:.76rem;
+      color:#b0d8f0;
+      margin-top:3px;
+    }
+    .p-val{
+      font-family:var(--font-h);
+      font-size:1.75rem;
+      font-weight:800;
+      color:#fff;
+      margin-top:10px;
+      line-height:1;
+    }
+    .p-unit{
+      font-size:.8rem;
+      color:#7dd8f0;
+      margin-left:5px;
+      font-weight:600;
+    }
+    .p-bar-bg{
+      height:8px;
+      background:#0d1e30;
+      border-radius:5px;
+      overflow:hidden;
+      margin-top:12px;
+      border:1px solid #1e4060;
+    }
+    .p-bar-fill{
+      height:100%;
+      border-radius:5px;
+      transition:width .8s cubic-bezier(.2,0,.2,1);
+    }
+    .zone-pressure{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:9px 12px;
+      border-radius:10px;
+      background:#051e38;
+      border:1px solid #1e5080;
+      margin-bottom:8px;
+      font-size:.8rem;
+    }
+    .zone-pressure .zp-label{color:#8fc4e0;}
+    .zone-pressure .zp-val{font-family:var(--font-m);font-weight:700;color:#fff;}
     @media(max-width:980px){
       .top-row{grid-template-columns:1fr;}
       .zones-grid{grid-template-columns:1fr;}
+      .pressure-grid{grid-template-columns:repeat(2,1fr);}
     }
   </style>
 </head>
@@ -848,7 +908,14 @@
           </div>
         </div>
       </div>
-      <div class="zones-section" style="margin-top:6px">
+      <div class="metric-card" style="margin-top:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div class="mc-label" style="margin-bottom:0">📊 Pipeline Pressure</div>
+          <div id="pressureSummary" style="font-family:var(--font-m);font-size:.75rem;color:#7dd8f0"></div>
+        </div>
+        <div class="pressure-grid" id="pressureGrid" aria-live="polite"></div>
+      </div>
+      <div class="zones-section" style="margin-top:16px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
           <h3 style="color:#e0f4ff;font-family:var(--font-h);font-size:1.1rem;">🔍 Sensor Zones</h3>
           <div style="display:flex;gap:8px">
@@ -907,19 +974,48 @@
       "mtshwenelinda@gmail.com",
       "lucfola@gmail.com"
     ];
-
     const ZONES = [
       {id:'A', num:1, name:'Zone Alpha',   desc:'Northern Sector'},
       {id:'B', num:2, name:'Zone Beta',    desc:'Central Pipeline'},
       {id:'C', num:3, name:'Zone Charlie', desc:'Southern Grid'}
     ];
 
+    // ============================================================
+    // PRESSURE SETTINGS
+    // These mirror the Arduino sketch. readPressureSensors() maps
+    // each pot from 0-4095 to 0-1000, and the OLED divides by 100
+    // to show bar. So 1000 in Firebase means 10.00 bar.
+    // ============================================================
+    const PRESSURE_RAW_MAX  = 1000;
+    const PRESSURE_DIVISOR  = 100;
+    const PRESSURE_UNIT     = 'bar';
+    const LEAK_DROP_RAW     = 100;   // 1.00 bar, same as detectLeak()
+    const PRESSURE_DECIMALS = 2;     // set to 1 to match the OLED exactly
+
+    const PRESSURE_POINTS = [
+      { key:'p0', tag:'P0', name:'Pipeline Inlet' },
+      { key:'p1', tag:'P1', name:'After Zone A' },
+      { key:'p2', tag:'P2', name:'After Zone B' },
+      { key:'p3', tag:'P3', name:'Pipeline Outlet' }
+    ];
+
+    // Which two pressure points sit either side of each zone.
+    // Matches determineLeakZone() in the sketch: zone 1 is the
+    // drop from P0 to P1, zone 2 from P1 to P2, zone 3 from P2 to P3.
+    const ZONE_SEGMENTS = { A:['p0','p1'], B:['p1','p2'], C:['p2','p3'] };
+
+    function toBar(raw){
+      return Number(raw) / PRESSURE_DIVISOR;
+    }
+    function barText(raw){
+      return toBar(raw).toFixed(PRESSURE_DECIMALS);
+    }
+
     const APP = {
       user: null,
       pendingReg: null,
+      pendingLogin: null,
       emailOTP: '',
-      resetOTP:'',
-      resetEmail:'',
       authStep: 'login',
       incidentLog: [],
       leakZones: [],
@@ -930,6 +1026,7 @@
       forcedLeakZone: null,
       activeFilter: 'all',
       liveData: null,
+      faultReport: null,
       deviceOnline: false,
       liveListenerActive: false
     };
@@ -943,9 +1040,9 @@
     ];
     const FAQS = [
       {q:"What is Aqua Logic?",a:"Aqua Logic is a smart water intelligence platform that monitors water infrastructure in real time, tracks reservoir levels, and detects leaks across Zones A, B, and C."},
-      {q:"How does leak detection work?",a:"Each zone has a smart sensor. The system checks flow and pressure. When readings become abnormal, a leak alert is triggered and recorded."},
+      {q:"How does leak detection work?",a:"Four pressure sensors sit along the pipeline. The system watches the pressure drop between each pair. When a drop passes the safe limit, the zone between those two sensors is flagged as leaking."},
       {q:"Why verify email and phone?",a:"Verification confirms that the operator contact details are real and reachable. Email is checked first. Phone is checked second."},
-      {q:"What happens when a leak is detected?",a:"The affected zone turns into an alert state, an incident is logged, and a fault report can be prepared for Rand Water."}
+      {q:"What happens when a leak is detected?",a:"The affected zone turns into an alert state, an incident is logged, and a fault report can be prepared for the response team."}
     ];
     function showToast(title, msg, timeout = 4200){
       const pile = $('toastPile');
@@ -1068,9 +1165,6 @@
       else if(s === 'verifyEmail') c.innerHTML = verifyEmailHTML();
       else if(s === 'verifyPhone') c.innerHTML = verifyPhoneHTML();
       else if(s === 'forgotEmail') c.innerHTML = forgotEmailHTML();
-     
-      
-      else if(s === 'resetSuccess') c.innerHTML = resetSuccessHTML();
       const rc = $('recaptcha-container');
       if(rc){
         rc.style.display = (s === 'verifyPhone') ? 'block' : 'none';
@@ -1105,14 +1199,13 @@
             <input id="li-otp" type="text" placeholder="Enter email OTP" style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"/>
             <button class="ctrl" style="margin-top:10px" onclick="doLogin()">Verify OTP & Sign In</button>
           </div>
-          <div style="font-size:.82rem;color:#3a6a7a;margin-top:6px">Demo: use <strong>demo@aqua.co.za</strong> / <strong>demo123</strong></div>
         </div>
       `;
     }
     function registerHTML(){
       return `
         <div style="font-family:var(--font-h);font-size:1.2rem;font-weight:800;margin-bottom:6px">Create Account</div>
-        <div style="color:#245;opacity:.85;margin-bottom:10px">Enter your details, then verify email, then verify phone.</div>
+        <div style="color:#245;opacity:.85;margin-bottom:10px">Enter your details, then verify your email address.</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <input id="rg-name" placeholder="First name" style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"/>
           <input id="rg-surname" placeholder="Surname" style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"/>
@@ -1186,21 +1279,10 @@
       return `
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="font-family:var(--font-h);font-size:1.2rem;font-weight:800">Forgot Password</div>
-          <div style="color:#456">Enter your registered email</div>
+          <div style="color:#456">Enter your registered email. Firebase will send you a reset link that works on any device.</div>
           <input id="fp-email" type="email" placeholder="you@domain.co.za" style="padding:10px;border-radius:8px;border:1px solid #e6f6fb"/>
-          <button class="ctrl" onclick="sendResetOTP()">Send OTP</button>
+          <button class="ctrl" onclick="sendResetOTP()">Send Reset Link</button>
           <button class="ctrl" onclick="APP.authStep='login';renderAuth()">Back To Sign In</button>
-        </div>
-      `;
-    }
-   
-    function resetSuccessHTML(){
-      return `
-        <div style="display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;">
-          <div style="font-size:60px;">✅</div>
-          <div style="font-family:var(--font-h);font-size:1.3rem;font-weight:800;">Password Reset Successful</div>
-          <div style="color:#456">Your password has been updated successfully.</div>
-          <button class="ctrl" onclick="APP.authStep='login';renderAuth();">Sign In</button>
         </div>
       `;
     }
@@ -1209,23 +1291,6 @@
       const pw = ($('rg-pass')||{}).value || '';
       const cf = ($('rg-conf')||{}).value || '';
       const msg = $('matchMsg');
-      if(!msg) return;
-      if(cf.length === 0){
-        msg.textContent = '';
-        return;
-      }
-      if(pw === cf){
-        msg.textContent = '✓ Passwords match';
-        msg.style.color = '#00b86b';
-      } else {
-        msg.textContent = '✗ Passwords do not match';
-        msg.style.color = '#f44336';
-      }
-    }
-    function checkResetConfirm(){
-      const pw = ($('new-reset-pass')||{}).value || '';
-      const cf = ($('confirm-reset-pass')||{}).value || '';
-      const msg = $('resetMatchMsg');
       if(!msg) return;
       if(cf.length === 0){
         msg.textContent = '';
@@ -1258,19 +1323,22 @@
       return String(Math.floor(100000 + Math.random() * 900000));
     }
     function doRegister(){
-      const name = ($('rg-name')||{}).value?.trim();
-      const surname = ($('rg-surname')||{}).value?.trim();
-      const email = ($('rg-email')||{}).value?.trim();
-      if(!AUTHORIZED_USERS.includes(email.toLowerCase())){
-        showToast('🔒 Access Restricted', 'This email address is not authorised to access Aqua Logic systems. Please contact the system administrator.');
-        return;
-      }
-      const phoneRaw = ($('rg-phone')||{}).value?.trim();
+      const name = ($('rg-name')||{}).value?.trim() || '';
+      const surname = ($('rg-surname')||{}).value?.trim() || '';
+      const email = (($('rg-email')||{}).value?.trim() || '').toLowerCase();
+      const phoneRaw = ($('rg-phone')||{}).value?.trim() || '';
       const phone = normalizePhoneNumber(phoneRaw);
-      const pass = ($('rg-pass')||{}).value;
-      const conf = ($('rg-conf')||{}).value;
+      const pass = ($('rg-pass')||{}).value || '';
+      const conf = ($('rg-conf')||{}).value || '';
+
+      // Empty check runs first so a blank form does not show the
+      // wrong "not authorised" message.
       if(!name || !surname || !email || !phone || !pass || !conf){
         showToast('⚠ Missing fields', 'Please complete all fields');
+        return;
+      }
+      if(!AUTHORIZED_USERS.includes(email)){
+        showToast('🔒 Access Restricted', 'This email address is not authorised to access Aqua Logic systems. Please contact the system administrator.');
         return;
       }
       if(pass.length < 8){
@@ -1319,58 +1387,60 @@
         });
       }
     }
-  function verifyEmail(){
-  const code = getOTP('#otpEmail');
- 
-  if(code.length < 6){
-    showToast('⚠ Incomplete code', 'Enter the full 6 digit email code');
-    return;
-  }
-  if(code !== APP.emailOTP){
-    showToast('❌ Wrong email code', 'The email OTP does not match');
-    return;
-  }
- 
-  const u = APP.pendingReg;
-  if(!u){
-    showToast('⚠ Session expired', 'Please register again');
-    APP.authStep = 'register';
-    renderAuth();
-    return;
-  }
- 
-  auth.createUserWithEmailAndPassword(u.email, u.pass)
-    .then(cred => {
-      // Profile details go in the database. The password does not.
-      return rtdb.ref('users/' + cred.user.uid).set({
-        name: u.name,
-        surname: u.surname,
-        email: u.email.toLowerCase(),
-        phone: u.phone,
-        createdAt: Date.now()
-      });
-    })
-    .then(() => auth.signOut())
-    .then(() => {
-      APP.pendingReg = null;
-      showToast('✅ Registration complete', 'Please login with your new account');
-      APP.authStep = 'login';
-      renderAuth();
-    })
-    .catch(err => {
-      console.error(err);
-      if(err.code === 'auth/email-already-in-use'){
-        showToast('⚠ Already registered', 'This email already has an account. Please sign in.');
-        APP.authStep = 'login';
-        renderAuth();
-      } else if(err.code === 'auth/weak-password'){
-        showToast('⚠ Weak password', 'Firebase needs at least 6 characters');
-      } else {
-        showToast('❌ Registration failed', err.message || 'Please try again');
+    // The account is created in Firebase Authentication once the
+    // email OTP is confirmed. Nothing is stored in the browser, so
+    // the same login works on any phone or laptop.
+    function verifyEmail(){
+      const code = getOTP('#otpEmail');
+
+      if(code.length < 6){
+        showToast('⚠ Incomplete code', 'Enter the full 6 digit email code');
+        return;
       }
-    });
-}
-    
+      if(code !== APP.emailOTP){
+        showToast('❌ Wrong email code', 'The email OTP does not match');
+        return;
+      }
+
+      const u = APP.pendingReg;
+      if(!u){
+        showToast('⚠ Session expired', 'Please register again');
+        APP.authStep = 'register';
+        renderAuth();
+        return;
+      }
+
+      auth.createUserWithEmailAndPassword(u.email, u.pass)
+        .then(cred => {
+          // Profile details go in the database. The password does not.
+          return rtdb.ref('users/' + cred.user.uid).set({
+            name: u.name,
+            surname: u.surname,
+            email: u.email.toLowerCase(),
+            phone: u.phone,
+            createdAt: Date.now()
+          });
+        })
+        .then(() => auth.signOut())
+        .then(() => {
+          APP.pendingReg = null;
+          showToast('✅ Registration complete', 'Please login with your new account');
+          APP.authStep = 'login';
+          renderAuth();
+        })
+        .catch(err => {
+          console.error(err);
+          if(err.code === 'auth/email-already-in-use'){
+            showToast('⚠ Already registered', 'This email already has an account. Please sign in.');
+            APP.authStep = 'login';
+            renderAuth();
+          } else if(err.code === 'auth/weak-password'){
+            showToast('⚠ Weak password', 'Firebase needs at least 6 characters');
+          } else {
+            showToast('❌ Registration failed', err.message || 'Please try again');
+          }
+        });
+    }
     function sendPhoneOtp(){
       if(!APP.pendingReg?.phone){
         showToast('⚠ Missing phone number', 'Phone number not found');
@@ -1388,115 +1458,134 @@
           showToast('❌ SMS send failed', 'Check Firebase Phone Auth, domain, and number format');
         });
     }
-
+    function verifyPhone(){
+      const code = getOTP('#otpSms');
+      if(code.length < 6){
+        showToast('⚠ Incomplete code', 'Enter the full 6 digit SMS code');
+        return;
+      }
+      if(!confirmationResult){
+        showToast('⚠ No SMS session', 'Press Send SMS Code first');
+        return;
+      }
+      confirmationResult.confirm(code)
+        .then(() => auth.signOut())
+        .then(() => {
+          confirmationResult = null;
+          showToast('✅ Phone verified', 'Please sign in with your email and password');
+          APP.authStep = 'login';
+          renderAuth();
+        })
+        .catch(err => {
+          console.error(err);
+          showToast('❌ Wrong SMS code', 'The code does not match');
+        });
+    }
+    // The password was already checked by Firebase in startLoginOTP,
+    // so this step only has to confirm the emailed OTP.
     function doLogin(){
-  const otp = ($('li-otp')||{}).value?.trim();
- 
-  if(!otp){
-    showToast('⚠ Missing OTP', 'Enter the code sent to your email');
-    return;
-  }
-  if(!APP.pendingLogin){
-    showToast('⚠ Session expired', 'Please sign in again');
-    return;
-  }
-  if(otp !== APP.emailOTP){
-    showToast('❌ Wrong OTP', 'Incorrect verification code');
-    return;
-  }
- 
-  APP.user = APP.pendingLogin;
-  APP.pendingLogin = null;
-  closeAuth();
-  launchDashboard();
-  showToast('✅ Login successful', `Welcome, ${APP.user.name}`);
-}
-    
+      const otp = ($('li-otp')||{}).value?.trim();
+
+      if(!otp){
+        showToast('⚠ Missing OTP', 'Enter the code sent to your email');
+        return;
+      }
+      if(!APP.pendingLogin){
+        showToast('⚠ Session expired', 'Please sign in again');
+        return;
+      }
+      if(otp !== APP.emailOTP){
+        showToast('❌ Wrong OTP', 'Incorrect verification code');
+        return;
+      }
+
+      APP.user = APP.pendingLogin;
+      APP.pendingLogin = null;
+      closeAuth();
+      launchDashboard();
+      showToast('✅ Login successful', `Welcome, ${APP.user.name}`);
+    }
     function showForgotPassword(){
       APP.authStep = 'forgotEmail';
       renderAuth();
     }
-
     function sendResetOTP(){
-  const email = ($('fp-email')||{}).value?.trim().toLowerCase();
- 
-  if(!email){
-    showToast('⚠ Missing Email', 'Enter your email');
-    return;
-  }
- 
-  auth.sendPasswordResetEmail(email)
-    .then(() => {
-      showToast('📧 Reset link sent', 'Check your email and follow the link');
-      APP.authStep = 'login';
-      renderAuth();
-    })
-    .catch(err => {
-      console.error(err);
-      if(err.code === 'auth/user-not-found'){
-        showToast('❌ Email Not Found', 'This email is not registered');
-      } else {
-        showToast('❌ Could not send', 'Check the email address and try again');
+      const email = ($('fp-email')||{}).value?.trim().toLowerCase();
+
+      if(!email){
+        showToast('⚠ Missing Email', 'Enter your email');
+        return;
       }
-    });
-}
-    
-    
-    
+
+      auth.sendPasswordResetEmail(email)
+        .then(() => {
+          showToast('📧 Reset link sent', 'Check your email and follow the link');
+          APP.authStep = 'login';
+          renderAuth();
+        })
+        .catch(err => {
+          console.error(err);
+          if(err.code === 'auth/user-not-found'){
+            showToast('❌ Email Not Found', 'This email is not registered');
+          } else {
+            showToast('❌ Could not send', 'Check the email address and try again');
+          }
+        });
+    }
+    // Credentials are checked by Firebase, not by the browser, so
+    // an account made on one device works on every device.
     function startLoginOTP(){
-  const email = ($('li-email')||{}).value?.trim().toLowerCase();
-  const pass  = ($('li-pass')||{}).value;
- 
-  
-  if(!email || !pass){
-    showToast('⚠ Missing details', 'Enter email and password first');
-    return;
-  }
-  if(!AUTHORIZED_USERS.includes(email)){
-    showToast('🔒 Unauthorized Access', 'Your account is not approved for Aqua Logic platform access. Please contact your administrator.');
-    return;
-  }
- 
-  auth.signInWithEmailAndPassword(email, pass)
-    .then(cred => rtdb.ref('users/' + cred.user.uid).get())
-    .then(snap => {
-      APP.pendingLogin = snap.val() || { name:'Operator', surname:'', email:email, phone:'' };
-      APP.emailOTP = genOTP();
-      return emailjs.send("service_pljtgtf","template_j20o1f6",{
-        email: email,
-        otp_code: APP.emailOTP
-      });
-    })
-    .then(() => {
-      $('otp-section').style.display = 'block';
-      showToast('📧 OTP sent', 'Check your email');
-    })
-    .catch(err => {
-      console.error(err);
-      switch(err.code){
-        case 'auth/user-not-found':
-          showToast('❌ Account not found', 'Please register first');
-          break;
-        case 'auth/wrong-password':
-        case 'auth/invalid-credential':
-        case 'auth/invalid-login-credentials':
-          showToast('❌ Invalid credentials', 'Incorrect email or password');
-          break;
-        case 'auth/invalid-email':
-          showToast('⚠ Invalid email', 'Check the email address');
-          break;
-        case 'auth/too-many-requests':
-          showToast('⚠ Too many attempts', 'Wait a moment and try again');
-          break;
-        case 'auth/network-request-failed':
-          showToast('❌ No connection', 'Check your internet and try again');
-          break;
-        default:
-          showToast('❌ Sign in failed', err.message || 'Please try again');
+      const email = ($('li-email')||{}).value?.trim().toLowerCase();
+      const pass  = ($('li-pass')||{}).value;
+
+      if(!email || !pass){
+        showToast('⚠ Missing details', 'Enter email and password first');
+        return;
       }
-    });
-}
-   
+      if(!AUTHORIZED_USERS.includes(email)){
+        showToast('🔒 Unauthorized Access', 'Your account is not approved for Aqua Logic platform access. Please contact your administrator.');
+        return;
+      }
+
+      auth.signInWithEmailAndPassword(email, pass)
+        .then(cred => rtdb.ref('users/' + cred.user.uid).get())
+        .then(snap => {
+          APP.pendingLogin = snap.val() || { name:'Operator', surname:'', email:email, phone:'' };
+          APP.emailOTP = genOTP();
+          return emailjs.send("service_pljtgtf","template_j20o1f6",{
+            email: email,
+            otp_code: APP.emailOTP
+          });
+        })
+        .then(() => {
+          $('otp-section').style.display = 'block';
+          showToast('📧 OTP sent', 'Check your email');
+        })
+        .catch(err => {
+          console.error(err);
+          switch(err.code){
+            case 'auth/user-not-found':
+              showToast('❌ Account not found', 'Please register first');
+              break;
+            case 'auth/wrong-password':
+            case 'auth/invalid-credential':
+            case 'auth/invalid-login-credentials':
+              showToast('❌ Invalid credentials', 'Incorrect email or password');
+              break;
+            case 'auth/invalid-email':
+              showToast('⚠ Invalid email', 'Check the email address');
+              break;
+            case 'auth/too-many-requests':
+              showToast('⚠ Too many attempts', 'Wait a moment and try again');
+              break;
+            case 'auth/network-request-failed':
+              showToast('❌ No connection', 'Check your internet and try again');
+              break;
+            default:
+              showToast('❌ Sign in failed', err.message || 'Please try again');
+          }
+        });
+    }
     function launchDashboard(){
       $('publicSite').style.display = 'none';
       $('dashboard').style.display = 'block';
@@ -1505,36 +1594,34 @@
       $('dashWelcome').textContent = `Welcome , ${APP.user?.name || 'Operator'} 👋`;
       updateTime();
       seedHistory();
+      renderPressure(null);
+      renderZones({});
       startLiveData();
     }
-
     function logout(){
-  auth.signOut().catch(err => console.error(err));
-  APP.user = null;
-  APP.pendingLogin = null;
-  APP.incidentLog = [];
-  APP.leakZones = [];
-  APP.forcedLeakZone = null;
-  $('dashboard').style.display = 'none';
-  $('publicSite').style.display = 'block';
-  $('dashboard').setAttribute('aria-hidden','true');
-  stopLiveData();
-  showToast('👋 Logged out', 'You have been signed out');
-}
-    
+      auth.signOut().catch(err => console.error(err));
+      APP.user = null;
+      APP.pendingLogin = null;
+      APP.incidentLog = [];
+      APP.leakZones = [];
+      APP.forcedLeakZone = null;
+      APP.liveData = null;
+      $('dashboard').style.display = 'none';
+      $('publicSite').style.display = 'block';
+      $('dashboard').setAttribute('aria-hidden','true');
+      stopLiveData();
+      showToast('👋 Logged out', 'You have been signed out');
+    }
     function updateTime(){
       $('dashTime').textContent = 'Last refreshed: ' + new Date().toLocaleString('en-ZA',{dateStyle:'medium',timeStyle:'short'});
     }
-
     // ============================================================
     // REAL TIME DATA
     // The ESP32 writes readings to /aqualogic in the Realtime
-    // Database (see AquaLogic_Firebase.ino). This listener fires
-    // every time the device writes a new value, so the dashboard
-    // updates live without any polling or manual refresh.
+    // Database every 2 seconds. This listener fires on every write,
+    // so the dashboard updates live with no polling.
     // ============================================================
     let liveRef = null;
-
     function startLiveData(){
       if(APP.liveListenerActive) return;
       liveRef = rtdb.ref('/aqualogic');
@@ -1556,12 +1643,10 @@
       });
       APP.liveListenerActive = true;
     }
-
     function stopLiveData(){
       if(liveRef) liveRef.off();
       APP.liveListenerActive = false;
     }
-
     function applyLiveData(data){
       const lvl = Math.round(data.tank?.level ?? 0);
       setEl('levelVal', lvl);
@@ -1569,9 +1654,9 @@
       $('tankWater').style.height = lvl + '%';
       $('tankPctLbl').textContent = lvl + '%';
       updateLevelStatus(lvl);
+      renderPressure(data);
       renderZones(data);
     }
-
     // Mirrors the physical LED level indicator on the device:
     // green at 70% or more, yellow from 30% to 69%, red below 30%.
     function updateLevelStatus(lvl){
@@ -1579,7 +1664,6 @@
       const bar = $('levelBar');
       const water = $('tankWater');
       if(!st) return;
-
       if(lvl >= 70){
         st.textContent = '● LEVEL GOOD';
         st.style.background = 'rgba(0,201,122,.15)';
@@ -1605,12 +1689,10 @@
         if(water) water.style.background = 'linear-gradient(180deg,#f44336,#b71c1c)';
       }
     }
-
     function setSystemStatus(color, text){
       $('sysStatusDot').className = 'status-dot ' + color;
       $('sysStatusTxt').textContent = text;
     }
-
     function refreshDash(){
       showToast('🔄 Refreshing', 'Reading live sensor data');
       rtdb.ref('/aqualogic').get().then((snap) => {
@@ -1627,29 +1709,77 @@
         showToast('❌ Refresh failed', 'Could not reach the database');
       });
     }
+    // ============================================================
+    // PIPELINE PRESSURE
+    // Draws the four sensor points sent by the ESP32.
+    // ============================================================
+    function pressureColour(raw){
+      if(raw < PRESSURE_RAW_MAX * 0.30){
+        return { bar:'linear-gradient(90deg,#b71c1c,#f44336)', text:'#ff6b5e' };
+      }
+      if(raw < PRESSURE_RAW_MAX * 0.60){
+        return { bar:'linear-gradient(90deg,#c98a00,#ffb300)', text:'#ffb300' };
+      }
+      return { bar:'linear-gradient(90deg,#00915f,#00e5a0)', text:'#ffffff' };
+    }
+    function renderPressure(data){
+      const grid = $('pressureGrid');
+      if(!grid) return;
 
+      const p = data?.pressure || {};
+      const readings = [];
+
+      grid.innerHTML = PRESSURE_POINTS.map(pt => {
+        const raw = p[pt.key];
+        const has = raw !== undefined && raw !== null && !isNaN(Number(raw));
+        const val = has ? Number(raw) : 0;
+        if(has) readings.push(val);
+
+        const pct = has ? Math.min(100, Math.max(0, (val / PRESSURE_RAW_MAX) * 100)) : 0;
+        const c = has ? pressureColour(val)
+                      : { bar:'#1e4060', text:'rgba(255,255,255,.35)' };
+
+        return `
+          <div class="p-point">
+            <div class="p-tag">${pt.tag}</div>
+            <div class="p-name">${pt.name}</div>
+            <div class="p-val" style="color:${c.text}">
+              ${has ? barText(val) : '—'}<span class="p-unit">${PRESSURE_UNIT}</span>
+            </div>
+            <div class="p-bar-bg">
+              <div class="p-bar-fill" style="width:${pct}%;background:${c.bar}"></div>
+            </div>
+          </div>`;
+      }).join('');
+
+      const sum = $('pressureSummary');
+      if(sum){
+        if(readings.length === PRESSURE_POINTS.length){
+          const drop = (readings[0] - readings[readings.length - 1]) / PRESSURE_DIVISOR;
+          sum.textContent = `Inlet to outlet drop: ${drop.toFixed(PRESSURE_DECIMALS)} ${PRESSURE_UNIT}`;
+        } else {
+          sum.textContent = 'Waiting for sensor data';
+        }
+      }
+    }
     function renderZones(data){
       const liveLeakDetected = !!(data?.leak?.detected);
       const liveLeakZoneNum = data?.leak?.zone || 0;
-
       APP.leakZones = [];
       let hasLeak = false;
       const grid = $('zonesGrid');
       grid.innerHTML = '';
-
       ZONES.forEach(z => {
         // A demo override (from the "Demo Leak" button) takes priority
         // so the UI can be tested before the hardware is connected.
         const forced = APP.forcedLeakZone === z.id;
         const leak = forced || (liveLeakDetected && liveLeakZoneNum === z.num);
         const offline = !leak && !APP.deviceOnline;
-
         if(leak){
           APP.leakZones.push(z.id);
           hasLeak = true;
         }
-
-        let sdot='normal', slbl='Sensor Active', ssub='Normal. No water detected';
+        let sdot='normal', slbl='Sensor Active', ssub='Normal. Pressure within range';
         if(leak){
           sdot='leak';
           slbl='LEAK DETECTED';
@@ -1660,6 +1790,26 @@
           slbl='Sensor Offline';
           ssub='No data from device yet';
         }
+
+        // Pressure either side of this zone, taken straight from
+        // the two sensors that bracket it.
+        const seg  = ZONE_SEGMENTS[z.id] || [];
+        const pIn  = Number(data?.pressure?.[seg[0]]);
+        const pOut = Number(data?.pressure?.[seg[1]]);
+        const hasP = !isNaN(pIn) && !isNaN(pOut);
+        const dropRaw = hasP ? (pIn - pOut) : 0;
+        const dropColour = !hasP ? '#8fc4e0'
+                         : (dropRaw >= LEAK_DROP_RAW ? '#ff6b5e' : '#00e5a0');
+
+        const pressureRow = `
+          <div class="zone-pressure">
+            <span class="zp-label">${(seg[0]||'').toUpperCase()} in / ${(seg[1]||'').toUpperCase()} out</span>
+            <span class="zp-val">${hasP ? barText(pIn) + ' / ' + barText(pOut) + ' ' + PRESSURE_UNIT : '— / —'}</span>
+          </div>
+          <div class="zone-pressure" style="margin-bottom:12px">
+            <span class="zp-label">Pressure drop</span>
+            <span class="zp-val" style="color:${dropColour}">${hasP ? (dropRaw / PRESSURE_DIVISOR).toFixed(PRESSURE_DECIMALS) + ' ' + PRESSURE_UNIT : '—'}</span>
+          </div>`;
 
         const card = document.createElement('div');
         card.className = 'zone-card' + (leak ? ' leak-zone' : '');
@@ -1674,6 +1824,7 @@
               <span style="font-size:.78rem;color:#cce8f8">${ssub}</span>
             </div>
           </div>
+          ${pressureRow}
           <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
             <div style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);padding:6px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:.8rem">
               ${leak ? '⚠ LEAK DETECTED' : '✓ NORMAL'}
@@ -1685,7 +1836,6 @@
         `;
         grid.appendChild(card);
       });
-
       if(hasLeak){
         setSystemStatus('red', `⚠ ${APP.leakZones.length} LEAK${APP.leakZones.length>1?'S':''} DETECTED`);
         const key = APP.leakZones.join(',');
@@ -1699,7 +1849,6 @@
         setSystemStatus('green', 'ALL SYSTEMS NOMINAL');
       }
     }
-
     function seedHistory(){
       APP.incidentLog = [
         {type:'system',msg:'Dashboard connected. Waiting for device data',time: new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),zone:'System'}
@@ -1740,113 +1889,135 @@
         `).join('')
         : `<div style="text-align:center;padding:30px;color:#6a9ab8;font-size:.95rem">No ${filter} events found</div>`;
     }
-    
-  function buildFaultReport(){
-  const u = APP.user || {};
-  const zones = APP.leakZones.length
-    ? APP.leakZones.map(z => `Zone ${z}`).join(', ')
-    : 'None';
- 
-  return {
-    zones: zones,
-    datetime: new Date().toLocaleString('en-ZA', { dateStyle:'full', timeStyle:'short' }),
-    operator: `${u.name || 'System'} ${u.surname || ''}`.trim(),
-    contact: u.phone || 'Not provided',
-    operator_email: u.email || 'system@aqualogic.co.za',
-    details: APP.leakZones.length
-      ? APP.leakZones.map(z => `Zone ${z}: pressure drop or unexpected flow detected`).join('\n')
-      : 'No zone data available'
-  };
-}
-    
-   function openFaultModal(){
-  const r = buildFaultReport();
-  APP.faultReport = r;
- 
-  $('faultEmailBody').textContent =
+    // Builds the report once so the on screen preview and the
+    // emailed report always carry the same figures.
+    function buildFaultReport(){
+      const u = APP.user || {};
+      const zones = APP.leakZones.length
+        ? APP.leakZones.map(z => `Zone ${z}`).join(', ')
+        : 'None';
+
+      return {
+        zones: zones,
+        datetime: new Date().toLocaleString('en-ZA', { dateStyle:'full', timeStyle:'short' }),
+        operator: `${u.name || 'System'} ${u.surname || ''}`.trim(),
+        contact: u.phone || 'Not provided',
+        operator_email: u.email || 'system@aqualogic.co.za',
+        details: APP.leakZones.length
+          ? APP.leakZones.map(z => {
+              const seg  = ZONE_SEGMENTS[z] || [];
+              const pIn  = Number(APP.liveData?.pressure?.[seg[0]]);
+              const pOut = Number(APP.liveData?.pressure?.[seg[1]]);
+              if(isNaN(pIn) || isNaN(pOut)){
+                return `Zone ${z}: pressure drop or unexpected flow detected`;
+              }
+              const drop = (pIn - pOut) / PRESSURE_DIVISOR;
+              return `Zone ${z}: pressure fell from ${barText(pIn)} ${PRESSURE_UNIT} to ${barText(pOut)} ${PRESSURE_UNIT}, a drop of ${drop.toFixed(PRESSURE_DECIMALS)} ${PRESSURE_UNIT}`;
+            }).join('\n')
+          : 'No zone data available'
+      };
+    }
+    function openFaultModal(){
+      const r = buildFaultReport();
+      APP.faultReport = r;
+
+      $('faultEmailBody').textContent =
 `To          : support@ujaqualogic.co.za
 From        : ${r.operator_email}
 Subject     : [URGENT] Water Leak Detected. ${r.zones}
- 
+
 INCIDENT REPORT
- 
+
 Date and time : ${r.datetime}
 Affected zones: ${r.zones}
 Alert level   : High priority
 Operator      : ${r.operator}
 Contact       : ${r.contact}
- 
+
 ANOMALY DETAILS
- 
+
 ${r.details}
- 
+
 Please dispatch a response team to the affected zone as soon as possible.
- 
+
 Aqua Logic Monitoring System`;
- 
-  $('faultModal').classList.add('show');
-  $('faultModal').setAttribute('aria-hidden','false');
-}
+
+      $('faultModal').classList.add('show');
+      $('faultModal').setAttribute('aria-hidden','false');
+    }
     function closeFault(){
       $('faultModal').classList.remove('show');
       $('faultModal').setAttribute('aria-hidden','true');
     }
+    // Sent through EmailJS so it works on any device. The old
+    // mailto: version did nothing on phones with no mail app.
+    function sendFaultEmail(){
+      if(APP.lastEmailSentAt && (Date.now() - APP.lastEmailSentAt < 60000)){
+        showToast('⚠ Already sent', 'A report was recently sent');
+        return;
+      }
 
-  function sendFaultEmail(){
-  if(APP.lastEmailSentAt && (Date.now() - APP.lastEmailSentAt < 60000)){
-    showToast('⚠ Already sent', 'A report was recently sent');
-    return;
-  }
- 
-  const r = APP.faultReport || buildFaultReport();
-  const btn = $('sendFaultBtn');
- 
-  btn.disabled = true;
-  btn.textContent = 'Sending...';
- 
-  emailjs.send("service_pljtgtf", "template_fault", {
-    email:          "support@ujaqualogic.co.za",
-    subject:        `[URGENT] Water Leak Detected. ${r.zones}. Aqua Logic`,
-    reply_to:       r.operator_email,
-    zones:          r.zones,
-    datetime:       r.datetime,
-    operator:       r.operator,
-    contact:        r.contact,
-    operator_email: r.operator_email,
-    details:        r.details
-  })
-  .then(() => {
-    APP.lastEmailSentAt = Date.now();
-    logEvent('email',
-      `Fault report sent to support@ujaqualogic.co.za for ${r.zones}`,
-      new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),
-      'System');
-    closeFault();
-    showToast('📧 Report sent', 'The response team has been notified');
-  })
-  .catch(err => {
-    console.error(err);
-    showToast('❌ Report failed', 'Could not send. Check your connection and try again.');
-  })
-  .finally(() => {
-    btn.disabled = false;
-    btn.textContent = 'Send Report';
-  });
-}
-    
+      const r = APP.faultReport || buildFaultReport();
+      const btn = $('sendFaultBtn');
+
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+
+      emailjs.send("service_pljtgtf", "template_fault", {
+        email:          "support@ujaqualogic.co.za",
+        subject:        `[URGENT] Water Leak Detected. ${r.zones}. Aqua Logic`,
+        reply_to:       r.operator_email,
+        zones:          r.zones,
+        datetime:       r.datetime,
+        operator:       r.operator,
+        contact:        r.contact,
+        operator_email: r.operator_email,
+        details:        r.details
+      })
+      .then(() => {
+        APP.lastEmailSentAt = Date.now();
+        logEvent('email',
+          `Fault report sent to support@ujaqualogic.co.za for ${r.zones}`,
+          new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),
+          'System');
+        closeFault();
+        showToast('📧 Report sent', 'The response team has been notified');
+      })
+      .catch(err => {
+        console.error(err);
+        showToast('❌ Report failed', 'Could not send. Check your connection and try again.');
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.textContent = 'Send Report';
+      });
+    }
     function acknowledge(zone){
       logEvent('system',`Zone ${zone}: Incident acknowledged by operator`,new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'}),`Zone ${zone}`);
       showToast('📝 Acknowledged', `Zone ${zone} acknowledged`);
       if(APP.forcedLeakZone===zone) APP.forcedLeakZone=null;
       renderZones(APP.liveData || {});
     }
-
-    // Local only demo trigger, for testing the dashboard UI before
-    // the ESP32 is connected. Does not write anything to Firebase.
+    // Local only demo trigger, for testing the dashboard before the
+    // ESP32 is running. Builds a believable pressure profile with a
+    // 1.50 bar collapse across the chosen zone. Writes nothing to
+    // Firebase.
     function simulateLeak(zoneId){
       APP.forcedLeakZone = zoneId || (['A','B','C'])[Math.floor(Math.random()*3)];
+
+      const seg = ZONE_SEGMENTS[APP.forcedLeakZone] || [];
+      let val = 850;
+      const fake = {};
+      PRESSURE_POINTS.forEach(pt => {
+        fake[pt.key] = Math.round(val);
+        val -= (pt.key === seg[0]) ? 150 : 15;
+      });
+
+      APP.liveData = Object.assign({}, APP.liveData || {}, { pressure: fake });
+
       showToast('⚠ Demo leak', 'A demo leak has been triggered: ' + APP.forcedLeakZone);
-      renderZones(APP.liveData || {});
+      renderPressure(APP.liveData);
+      renderZones(APP.liveData);
     }
     function setEl(id,val){
       const el = $(id);
