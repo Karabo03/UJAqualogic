@@ -100,6 +100,7 @@ const APP = {
   silenceUntil: 0,
   lastEmailSentAt: 0,
   escalationsSent: {},
+  lastAlertKey: null,   // which zones were red the last time we raised the alarm
   forcedLeakZone: null,
   forcedLeakUntil: 0,   // demo leaks expire, see simulateLeak()
   activeFilter: 'all',
@@ -1013,15 +1014,22 @@ function renderZones(data){
   });
   if(hasLeak){
     setSystemStatus('red', `⚠ ${APP.leakZones.length} LEAK${APP.leakZones.length>1?'S':''} DETECTED`);
+    // Any change in which zones are red is treated as a new
+    // incident, so the alert and the email panel open straight
+    // away. There is no two minute waiting period any more.
     const key = APP.leakZones.join(',');
-    if(!APP.escalationsSent[key] || (Date.now()-APP.escalationsSent[key] > 120000)){
-      APP.escalationsSent[key] = Date.now();
+    if(key !== APP.lastAlertKey){
+      APP.lastAlertKey = key;
+      APP.lastEmailSentAt = 0;        // let the report be sent again for this new incident
       openFaultModal();
       const t = new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'});
       APP.leakZones.forEach(zid => logEvent('leak', `Zone ${zid}: Leak detected`, t, `Zone ${zid}`));
     }
   } else if(APP.deviceOnline){
     setSystemStatus('green', 'ALL SYSTEMS NOMINAL');
+    // Pipeline is clear. Forget the last alarm so that the very
+    // next leak raises a fresh one, even in the same zone.
+    APP.lastAlertKey = null;
     APP.escalationsSent = {};
   }
 }
