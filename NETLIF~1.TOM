@@ -1,0 +1,35 @@
+[build]
+  publish = "."
+
+# Security headers, applied to everything.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+
+# The page and its code must never be served stale.
+# max-age=0 with must-revalidate tells the browser to check with
+# Netlify on every visit. Netlify replies "not changed" when
+# nothing has changed, so this stays fast, but a new deploy is
+# picked up immediately instead of up to an hour later.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/app.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/style.css"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# The icon almost never changes, so it can be cached for a day.
+[[headers]]
+  for = "/favicon.png"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
