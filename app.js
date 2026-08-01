@@ -1022,6 +1022,7 @@ function renderZones(data){
     }
   } else if(APP.deviceOnline){
     setSystemStatus('green', 'ALL SYSTEMS NOMINAL');
+    APP.escalationsSent = {};
   }
 }
 
