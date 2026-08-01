@@ -1014,21 +1014,28 @@ function renderZones(data){
   });
   if(hasLeak){
     setSystemStatus('red', `⚠ ${APP.leakZones.length} LEAK${APP.leakZones.length>1?'S':''} DETECTED`);
-    // Any change in which zones are red is treated as a new
-    // incident, so the alert and the email panel open straight
-    // away. There is no two minute waiting period any more.
+    // A zone is red, so the report panel is open. Always.
+    // No waiting period, no conditions. It stays up for as long
+    // as the leak is there, and it refreshes itself with the
+    // latest readings on every update from the device.
+    APP.lastEmailSentAt = 0;   // the report can always be sent
+    openFaultModal();
+
+    // The incident is only written to the history when the set of
+    // red zones actually changes. Without this the device would
+    // write a new history row four times a second for as long as
+    // the leak lasted, and the log would be unusable.
     const key = APP.leakZones.join(',');
     if(key !== APP.lastAlertKey){
       APP.lastAlertKey = key;
-      APP.lastEmailSentAt = 0;        // let the report be sent again for this new incident
-      openFaultModal();
       const t = new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'});
       APP.leakZones.forEach(zid => logEvent('leak', `Zone ${zid}: Leak detected`, t, `Zone ${zid}`));
     }
   } else if(APP.deviceOnline){
     setSystemStatus('green', 'ALL SYSTEMS NOMINAL');
-    // Pipeline is clear. Forget the last alarm so that the very
-    // next leak raises a fresh one, even in the same zone.
+    // Pipeline is clear. Close the report panel and forget the
+    // last alarm, so the very next leak raises a fresh one.
+    closeFault();
     APP.lastAlertKey = null;
     APP.escalationsSent = {};
   }
