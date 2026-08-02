@@ -1283,8 +1283,6 @@ function setEl(id,val){
   if(el) el.textContent = val;
 }
 function animateWidth(id,pct){
-  setTimeout(()=>{
-    const el = $(id);
-    if(el) el.style.width = Math.min(100,Math.max(0,Number(pct))) + '%';
-  },30);
+  const el = $(id);
+  if(el) el.style.width = Math.min(100,Math.max(0,Number(pct))) + '%';
 }
