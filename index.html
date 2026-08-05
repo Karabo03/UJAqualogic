@@ -20,13 +20,22 @@
 </head>
 <body>
 
-  <!-- ========== Animated water background ========== -->
+  <!-- ========== Animated water background ==========
+       Sits behind everything. Light rays coming down through
+       deep water, slow drifting bubbles, and a surface wave. -->
   <div class="water-world" aria-hidden="true">
-    <div class="sun-bloom"></div>
+    <div class="deep-glow"></div>
+    <div class="rays">
+      <span style="--x:12%;--w:120px;--d:11s;--delay:0s"></span>
+      <span style="--x:30%;--w:80px;--d:14s;--delay:-3s"></span>
+      <span style="--x:52%;--w:160px;--d:9s;--delay:-6s"></span>
+      <span style="--x:71%;--w:90px;--d:13s;--delay:-2s"></span>
+      <span style="--x:88%;--w:130px;--d:16s;--delay:-8s"></span>
+    </div>
     <div class="caustics"></div>
-    <div class="waves-wrap" aria-hidden="true">
+    <div class="waves-wrap">
       <svg class="wave-svg" viewBox="0 0 1440 120" preserveAspectRatio="none">
-        <path d="M0,60 C200,120 400,20 600,70 C800,120 1000,30 1200,80 C1320,110 1380,55 1440,70 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.06)"/>
+        <path d="M0,60 C200,120 400,20 600,70 C800,120 1000,30 1200,80 C1320,110 1380,55 1440,70 L1440,120 L0,120 Z" fill="rgba(125,216,240,0.07)"/>
       </svg>
     </div>
     <div class="bubbles-wrap" id="bubWrap"></div>
@@ -34,46 +43,246 @@
 
   <!-- ========== Public landing page ========== -->
   <div id="publicSite" class="layer" role="main">
+
     <nav class="topbar">
       <div class="brand">
         <div class="brand-drop">💧</div>
-        Aqua Logic
+        <span>Aqua Logic</span>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button class="ctrl" onclick="openAuth('login')">Sign In</button>
-        <button class="ctrl" onclick="openAuth('register')">Register</button>
+      <div class="topbar-links">
+        <a href="#how">How it works</a>
+        <a href="#monitor">What we monitor</a>
+        <a href="#faq-section">FAQ</a>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-alert" onclick="openReport()">Report a Leak</button>
+        <button class="btn btn-ghost" onclick="openAuth('login')">Sign In</button>
       </div>
     </nav>
+
+    <!-- Hero -->
     <section class="hero">
-      <div class="hero-eyebrow"><span></span>National Water Intelligence<span></span></div>
-      <h1 class="hero-title">Smart Water<br><span>Monitoring System</span></h1>
-      <p class="hero-sub">Real time leak detection, reservoir monitoring, and automated fault escalation that protects water infrastructure around the clock.</p>
+      <div class="hero-eyebrow"><span class="pulse-dot"></span>National Water Intelligence</div>
+      <h1 class="hero-title">Water leaks found<br><span>before the street does</span></h1>
+      <p class="hero-sub">
+        Aqua Logic watches reservoir level, pipeline pressure and flow around the clock.
+        When water starts escaping, the system names the zone it is escaping from and puts a
+        technician on the way, instead of sending a crew to walk the line.
+      </p>
       <div class="hero-cta">
-        <button class="ctrl" onclick="document.getElementById('faq-section').scrollIntoView({behavior:'smooth'})">Learn More</button>
+        <button class="btn btn-alert btn-lg" onclick="openReport()">💧 Report a Leak</button>
+        <button class="btn btn-ghost btn-lg" onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">See how it works</button>
       </div>
-      <div class="hero-stats" role="status" aria-live="polite">
-        <div class="hero-stat glass"><div class="hero-stat-val" id="statZones">3</div><div class="hero-stat-lbl">Active Zones</div></div>
-        <div class="hero-stat glass"><div class="hero-stat-val">24/7</div><div class="hero-stat-lbl">Monitoring</div></div>
-        <div class="hero-stat glass"><div class="hero-stat-val">&lt;15s</div><div class="hero-stat-lbl">Alert Response</div></div>
-        <div class="hero-stat glass"><div class="hero-stat-val">90%</div><div class="hero-stat-lbl">Uptime</div></div>
+
+      <div class="hero-stats" role="status">
+        <div class="hero-stat"><div class="hero-stat-val">3</div><div class="hero-stat-lbl">Monitored zones</div></div>
+        <div class="hero-stat"><div class="hero-stat-val">4</div><div class="hero-stat-lbl">Pressure points</div></div>
+        <div class="hero-stat"><div class="hero-stat-val">2</div><div class="hero-stat-lbl">Flow sensors</div></div>
+        <div class="hero-stat"><div class="hero-stat-val">24/7</div><div class="hero-stat-lbl">Live monitoring</div></div>
+      </div>
+
+      <div class="scroll-hint" aria-hidden="true"><span></span></div>
+    </section>
+
+    <!-- How it works -->
+    <section id="how" class="section">
+      <div class="section-head">
+        <div class="section-eyebrow">The process</div>
+        <h2 class="section-title">From a hidden leak to a <span>technician on site</span></h2>
+        <p class="section-sub">Four steps, all of them automatic until the moment a person is needed.</p>
+      </div>
+      <div class="steps">
+        <div class="step glass-card">
+          <div class="step-num">01</div>
+          <h3>Sensors watch the line</h3>
+          <p>Pressure is measured at four points along the pipeline, flow is measured going in and coming out, and an ultrasonic sensor tracks the reservoir level.</p>
+        </div>
+        <div class="step glass-card">
+          <div class="step-num">02</div>
+          <h3>The system finds the zone</h3>
+          <p>A leak shows up as pressure falling between two sensors while more water goes in than comes out. The zone between those two sensors is the one losing water.</p>
+        </div>
+        <div class="step glass-card">
+          <div class="step-num">03</div>
+          <h3>A technician is assigned</h3>
+          <p>The system picks the next technician on the rotation, shows the operator who is on it, and puts their number one tap away.</p>
+        </div>
+        <div class="step glass-card">
+          <div class="step-num">04</div>
+          <h3>Everything is written down</h3>
+          <p>Every leak, every report from the public and every dispatch is stored, so there is a record of what happened and who attended.</p>
+        </div>
       </div>
     </section>
-    <section id="faq-section" class="faq-section">
-      <h2 class="section-title">Frequently Asked <span>Questions</span></h2>
-      <div id="faqList"></div>
+
+    <!-- What we monitor -->
+    <section id="monitor" class="section">
+      <div class="section-head">
+        <div class="section-eyebrow">On the network</div>
+        <h2 class="section-title">What the system <span>keeps an eye on</span></h2>
+      </div>
+      <div class="feature-grid">
+        <div class="feature glass-card">
+          <div class="feature-icon">🌊</div>
+          <h3>Reservoir level</h3>
+          <p>Live tank level with a warning long before the reservoir runs dry, so refills are planned instead of rushed.</p>
+        </div>
+        <div class="feature glass-card">
+          <div class="feature-icon">📊</div>
+          <h3>Pipeline pressure</h3>
+          <p>Four points along the line. The gap between any two of them is what gives the leak away and points at the zone.</p>
+        </div>
+        <div class="feature glass-card">
+          <div class="feature-icon">🚰</div>
+          <h3>Water balance</h3>
+          <p>Water entering the line against water leaving it. A gap between the two means water is going somewhere it should not.</p>
+        </div>
+        <div class="feature glass-card">
+          <div class="feature-icon">📣</div>
+          <h3>Reports from the public</h3>
+          <p>Anyone who sees water in the street can report it. The report lands on the operator's screen straight away.</p>
+        </div>
+        <div class="feature glass-card">
+          <div class="feature-icon">🔧</div>
+          <h3>Maintenance rotation</h3>
+          <p>A standing team list. Work is shared out evenly, so the same person is not called every single time.</p>
+        </div>
+        <div class="feature glass-card">
+          <div class="feature-icon">📋</div>
+          <h3>Incident history</h3>
+          <p>A full record of leaks, acknowledgements, dispatches and reports, kept in one place for every operator to see.</p>
+        </div>
+      </div>
     </section>
+
+    <!-- Report banner -->
+    <section class="report-banner">
+      <div class="report-banner-inner glass-card">
+        <div>
+          <h2>Seen water running in the street?</h2>
+          <p>Tell us where it is. It takes under a minute and it reaches the control room immediately.</p>
+        </div>
+        <button class="btn btn-alert btn-lg" onclick="openReport()">Report a Leak</button>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq-section" class="section">
+      <div class="section-head">
+        <div class="section-eyebrow">Questions</div>
+        <h2 class="section-title">Frequently asked <span>questions</span></h2>
+      </div>
+      <div id="faqList" class="faq-wrap"></div>
+    </section>
+
     <footer class="pub-footer">
-      <p>© Aqua Logic 2026 · National Water Intelligence · Powered by Smart Sensor Technology</p>
-      <p style="margin-top:6px">Emergency Faults: <a href="mailto:support@ujaqualogic.co.za">support@ujaqualogic.co.za</a> · Aqua Logic  Hotline: <strong>0860 000 000</strong></p>
+      <div class="footer-top">
+        <div class="brand">
+          <div class="brand-drop">💧</div>
+          <span>Aqua Logic</span>
+        </div>
+        <div class="footer-contact">
+          <div>General enquiries: <a href="mailto:info@ujaqualogic.co.za">info@ujaqualogic.co.za</a></div>
+          <div>Hotline: <strong>0860 000 000</strong></div>
+        </div>
+      </div>
+      <div class="footer-bottom">© Aqua Logic 2026 · National Water Intelligence · Powered by smart sensor technology</div>
     </footer>
   </div>
 
-  <!-- ========== Sign in and register panel ========== -->
+  <!-- ========== Report a Leak (public) ========== -->
+  <div class="modal-backdrop report-backdrop" id="reportModal" aria-hidden="true">
+    <div class="report-panel" role="dialog" aria-modal="true">
+      <button class="close-btn" onclick="closeReport()" aria-label="Close">✕</button>
+      <div id="reportContent">
+        <div class="report-head">
+          <div class="report-badge">💧 Public report</div>
+          <h3>Report a water leak</h3>
+          <p>Tell us where the water is. The control room sees this the moment you send it.</p>
+        </div>
+
+        <div class="field">
+          <input id="rp-name" type="text" placeholder=" " autocomplete="name"/>
+          <label for="rp-name">Your name</label>
+        </div>
+
+        <div class="field">
+          <input id="rp-phone" type="tel" placeholder=" " autocomplete="tel"/>
+          <label for="rp-phone">Phone number, so we can call you back</label>
+        </div>
+
+        <div class="field">
+          <input id="rp-area" type="text" placeholder=" "/>
+          <label for="rp-area">Street or landmark nearest to the water</label>
+        </div>
+
+        <div class="field">
+          <label class="static-label" for="rp-zone">Area, if you know it</label>
+          <select id="rp-zone">
+            <option value="">I am not sure which area</option>
+            <option value="A">Zone A. Northern Sector</option>
+            <option value="B">Zone B. Central Pipeline</option>
+            <option value="C">Zone C. Southern Grid</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <textarea id="rp-desc" rows="3" placeholder=" "></textarea>
+          <label for="rp-desc">What do you see? For example, water coming up through the road</label>
+        </div>
+
+        <div class="field">
+          <label class="static-label" for="rp-sev">How bad is it?</label>
+          <select id="rp-sev">
+            <option value="low">A slow trickle</option>
+            <option value="medium" selected>A steady stream</option>
+            <option value="high">Water gushing or flooding</option>
+          </select>
+        </div>
+
+        <p class="privacy-note">
+          Your name and number are used only to follow up on this report and to let you know when it is resolved.
+        </p>
+
+        <div class="report-actions">
+          <button class="btn btn-alert btn-block" id="rpSendBtn" onclick="submitReport()">Send report</button>
+          <button class="btn btn-ghost" onclick="closeReport()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Sign in and register ========== -->
   <div class="auth-overlay" id="authOverlay" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="auth-panel" id="authPanel">
-      <button class="close-btn" onclick="closeAuth()">✕</button>
-      <div id="authContent"></div>
-      <div id="recaptcha-container"></div>
+    <div class="auth-shell" id="authPanel">
+      <button class="close-btn" onclick="closeAuth()" aria-label="Close">✕</button>
+
+      <!-- Left: brand side -->
+      <aside class="auth-brand">
+        <div class="auth-brand-top">
+          <div class="brand">
+            <div class="brand-drop">💧</div>
+            <span>Aqua Logic</span>
+          </div>
+        </div>
+        <div class="auth-brand-mid">
+          <h2>The control room<br>for your water network.</h2>
+          <p>Live reservoir level, pipeline pressure, water balance and leak location, all on one screen.</p>
+          <ul class="auth-points">
+            <li><span>✓</span> Leaks located down to the zone</li>
+            <li><span>✓</span> Reports from the public in real time</li>
+            <li><span>✓</span> Technicians assigned on rotation</li>
+          </ul>
+        </div>
+        <div class="auth-brand-bottom">Operator access only. Contact your administrator for an account.</div>
+        <div class="auth-brand-waves" aria-hidden="true"></div>
+      </aside>
+
+      <!-- Right: the actual form -->
+      <section class="auth-form-side">
+        <div id="authContent"></div>
+        <div id="recaptcha-container"></div>
+      </section>
     </div>
   </div>
 
@@ -93,12 +302,16 @@
           <div id="sysStatusTxt">WAITING FOR DEVICE</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <div style="background:rgba(255,255,255,0.06);padding:8px 12px;border-radius:24px;color:#fff">👤 <strong id="dashUserName">—</strong></div>
+          <button class="bell-btn" onclick="scrollToReports()" title="Citizen reports">
+            🔔<span class="bell-count" id="bellCount" style="display:none">0</span>
+          </button>
+          <div class="user-chip">👤 <strong id="dashUserName">—</strong><span class="role-chip" id="roleChip"></span></div>
           <button class="ctrl" onclick="refreshDash()">↻ Refresh</button>
           <button class="ctrl" onclick="logout()">Logout</button>
         </div>
       </div>
     </header>
+
     <div class="dash-body">
       <div class="dash-welcome">
         <h2 id="dashWelcome">Welcome</h2>
@@ -168,8 +381,8 @@
 
       <!-- Sensor zones -->
       <div class="zones-section" style="margin-top:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <h3 style="color:#e0f4ff;font-family:var(--font-h);font-size:1.1rem;">🔍 Sensor Zones</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <h3 class="dash-section-title">🔍 Sensor Zones</h3>
           <div style="display:flex;gap:8px">
             <button class="ctrl" onclick="openHistory()">📋 Incident History</button>
           </div>
@@ -177,8 +390,45 @@
         <div class="zones-grid" id="zonesGrid" aria-live="polite"></div>
       </div>
 
+      <!-- Dispatch and maintenance team -->
+      <div class="dispatch-row" style="margin-top:16px">
+        <div class="metric-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <div class="mc-label" style="margin-bottom:0">🔧 Current Dispatch</div>
+            <div id="dispatchMeta" style="font-family:var(--font-m);font-size:.75rem;color:#7dd8f0"></div>
+          </div>
+          <div id="dispatchCard" aria-live="polite"></div>
+        </div>
+
+        <div class="metric-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <div class="mc-label" style="margin-bottom:0">👷 Maintenance Team</div>
+            <div style="font-family:var(--font-m);font-size:.72rem;color:#7dd8f0">Next up is whoever waited longest</div>
+          </div>
+          <div id="teamList" class="team-list" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <!-- Citizen reports -->
+      <div class="reports-section" id="reportsSection" style="margin-top:16px">
+        <div class="reports-head">
+          <h3 class="dash-section-title">
+            📣 Citizen Reports
+            <span class="unread-pill" id="unreadPill" style="display:none">0 new</span>
+          </h3>
+          <div class="report-filters">
+            <button class="chip active" data-rf="all" onclick="filterReports('all')">All</button>
+            <button class="chip" data-rf="new" onclick="filterReports('new')">New</button>
+            <button class="chip" data-rf="acknowledged" onclick="filterReports('acknowledged')">Acknowledged</button>
+            <button class="chip" data-rf="dispatched" onclick="filterReports('dispatched')">Dispatched</button>
+            <button class="chip" data-rf="resolved" onclick="filterReports('resolved')">Resolved</button>
+          </div>
+        </div>
+        <div class="reports-list" id="reportsList" aria-live="polite"></div>
+      </div>
+
       <footer class="dash-footer">
-        © Aqua Logic 2026 · National Water Intelligence · Powered by Smart Sensor Technology
+        © Aqua Logic 2026 · National Water Intelligence · Powered by smart sensor technology
       </footer>
     </div>
   </div>
@@ -188,11 +438,12 @@
     <div class="history-panel" role="dialog" aria-modal="true">
       <div class="history-head">
         <h3>📋 Sensor Incident History</h3>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="ctrl" onclick="filterHistory('all')">All</button>
           <button class="ctrl" onclick="filterHistory('leak')">Leaks</button>
           <button class="ctrl" onclick="filterHistory('normal')">Normal</button>
           <button class="ctrl" onclick="filterHistory('email')">Reports</button>
+          <button class="ctrl" onclick="filterHistory('dispatch')">Dispatches</button>
         </div>
       </div>
       <div class="history-body" id="historyBody"></div>
@@ -205,16 +456,17 @@
   <!-- ========== Fault report modal ========== -->
   <div class="fault-backdrop" id="faultModal" aria-hidden="true">
     <div class="fault-panel" role="dialog" aria-modal="true">
-      <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
         <div>
           <h3 style="margin-bottom:6px">🚨 Leak Detected. Prepare Fault Report</h3>
           <div style="color:#653033"> Dispatch automated report to the response team </div>
         </div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="ctrl" onclick="closeFault()">Dismiss</button>
           <button class="ctrl" id="sendFaultBtn" onclick="sendFaultEmail()">Send Report</button>
         </div>
       </div>
+      <div id="faultDispatchRow"></div>
       <div style="margin-top:12px">
         <div class="email-preview" id="faultEmailBody" role="region" aria-live="polite"></div>
       </div>
