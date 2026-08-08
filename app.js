@@ -33,29 +33,70 @@ let confirmationResult = null;
 // CONSTANTS AND APP STATE
 // ============================================================
 const $ = (id) => document.getElementById(id);
-const AUTHORIZED_USERS = [
-  "kledwaba2003@gmail.com",
-  "moalosijustice0@gmail.com",
-  "hanyanijunior7@gmail.com",
-  "edwinskg2004@gmail.com",
-  "mtshwenelinda@gmail.com",
-  "lucfola@gmail.com",
-  "mabasoamile@gmail.com"
-];
+
+// ============================================================
+// ACCOUNT STATUS
+// Registering does not create access. It creates a request.
+// Every account sits at one of these four states, and the
+// state lives in the database, never in this file.
+//
+//   pending   Waiting for an administrator to look at it.
+//   approved  Can sign in and open the dashboard.
+//   declined  Was refused. Cannot sign in.
+//   suspended Was approved once and has since been switched off.
+//
+// Only an approved administrator can move an account from one
+// state to another. The database rules enforce that, so it
+// cannot be faked from the browser console.
+// ============================================================
+// ============================================================
+// CONTROL ROOM ADDRESS
+// The one inbox that is watched whether or not somebody is
+// signed into the dashboard. Fault reports and public leak
+// reports both copy it, so nothing is missed overnight.
+// ============================================================
+const CONTROL_ROOM_EMAIL = 'info@ujaqualogic.co.za';
+
+// EmailJS service and templates. Kept together so there is one
+// place to change them.
+const MAIL = {
+  service:      'service_pljtgtf',
+  otp:          'template_j20o1f6',
+  fault:        'template_fault',
+  // Create this one in EmailJS to have public reports copied to
+  // the control room inbox. Until it exists the copy is skipped
+  // and the report still saves to the database as normal.
+  publicReport: 'template_report'
+};
+
+const STATUS = {
+  PENDING:   'pending',
+  APPROVED:  'approved',
+  DECLINED:  'declined',
+  SUSPENDED: 'suspended'
+};
+
+// What the person is told when their account is not approved.
+const STATUS_MESSAGE = {
+  [STATUS.PENDING]:   ['⏳ Waiting for approval', 'Your access request has not been reviewed yet. An administrator will approve it and you will be able to sign in.'],
+  [STATUS.DECLINED]:  ['🔒 Request declined', 'Your access request was not approved. Contact the administrator at info@ujaqualogic.co.za if you believe this is a mistake.'],
+  [STATUS.SUSPENDED]: ['🔒 Account suspended', 'This account has been switched off by an administrator. Contact info@ujaqualogic.co.za.']
+};
+
 // ============================================================
 // ROLES
 // Two kinds of account. The administrator runs the control
 // room. Maintenance goes out and fixes the pipe. Both open the
 // same dashboard, the role only decides which buttons appear.
 //
-// Anyone registering picks their own role from the dropdown.
-// That is fine for a closed team, because only the email
-// addresses in AUTHORIZED_USERS can register at all. If this
-// ever goes wider, the role should be set against the email
-// beforehand instead of chosen on the form.
+// The registration form asks which one the person is applying
+// for, but that is a request, not a decision. The role that
+// counts is the one an administrator sets when approving, so
+// nobody can hand themselves administrator rights by picking
+// it from a dropdown.
 // ============================================================
 const ROLE_HINTS = {
-  admin:       'Administrators see everything and can dispatch, reassign and close jobs.',
+  admin:       'Administrator accounts run the control room. They see every screen and can approve new accounts, dispatch jobs and close them.',
   maintenance: 'Maintenance accounts join the call out rotation, so leaks get shared out evenly. You will be called when it is your turn.'
 };
 function roleHint(){
@@ -64,9 +105,10 @@ function roleHint(){
   if(sel && box) box.textContent = ROLE_HINTS[sel.value] || '';
 }
 function isAdmin(){
-  // Anything that is not explicitly maintenance is treated as an
-  // administrator, so accounts made before roles existed still work.
-  return (APP.user?.role || 'admin') !== 'maintenance';
+  // Strict. An account is an administrator only when the role
+  // was written as 'admin' by another administrator. Anything
+  // else, including a missing role, is treated as maintenance.
+  return APP.user?.role === 'admin';
 }
 
 const ZONES = [
@@ -141,6 +183,9 @@ const APP = {
   reportFilter: 'all',
   seenReportIds: [],     // used to spot arrivals and toast them
   team: [],              // everything under /team
+  accessRequests: [],    // every account under /users, admins only
+  seenRequestIds: [],    // used to toast an administrator when a new one lands
+  userFilter: 'pending', // which tab of the access requests panel is showing
   dispatch: null,        // the assignment shown on the dispatch card
   assignedForKey: null,  // stops one leak assigning a tech twice
   lastLeakRenderKey: null // redraws report cards when the sensors change
@@ -317,6 +362,7 @@ function renderAuth(){
   else if(s === 'verifyEmail') c.innerHTML = verifyEmailHTML();
   else if(s === 'verifyPhone') c.innerHTML = verifyPhoneHTML();
   else if(s === 'forgotEmail') c.innerHTML = forgotEmailHTML();
+  else if(s === 'requestSent') c.innerHTML = requestSentHTML();
   const rc = $('recaptcha-container');
   if(rc){
     rc.style.display = (s === 'verifyPhone') ? 'block' : 'none';
@@ -394,8 +440,11 @@ function verifyLoginHTML(){
 function registerHTML(){
   return `
     <div class="auth-screen">
-      <div class="auth-h">Create your account</div>
-      <div class="auth-p">Enter your details, then confirm your email address.</div>
+      <div class="auth-h">Request access</div>
+      <div class="auth-p">
+        Enter your details and confirm your email address. An administrator
+        approves the account before you can sign in.
+      </div>
 
       <div class="auth-row">
         <div class="field">
@@ -419,14 +468,14 @@ function registerHTML(){
       </div>
 
       <div class="field">
-        <label class="static-label" for="rg-role">I am registering as</label>
+        <label class="static-label" for="rg-role">I am applying as</label>
         <select id="rg-role" onchange="roleHint()">
-          <option value="admin">Administrator. I run the control room</option>
           <option value="maintenance">Maintenance. I go out and fix the leaks</option>
+          <option value="admin">Administrator. I run the control room</option>
         </select>
       </div>
       <div class="auth-note" id="roleHintBox" style="margin-top:-8px;margin-bottom:18px">
-        ${ROLE_HINTS.admin}
+        ${ROLE_HINTS.maintenance}
       </div>
 
       <div class="field pw-wrap">
@@ -447,6 +496,11 @@ function registerHTML(){
         <button type="button" class="pw-toggle" onclick="toggleEye('rg-conf',this)" aria-label="Show password">${EYE_SVG}</button>
       </div>
       <div id="matchMsg" style="font-size:.78rem;margin-top:-10px;height:16px;font-weight:700"></div>
+
+      <div class="auth-note" style="margin-bottom:14px">
+        What you pick above is a request. The administrator decides the role
+        when they approve you.
+      </div>
 
       <div class="auth-actions">
         <button class="btn btn-primary btn-block" id="registerBtn" onclick="doRegister()">Continue</button>
@@ -517,6 +571,38 @@ function forgotEmailHTML(){
     </div>
   `;
 }
+// Shown once the account has been created as a request. It is
+// deliberately a full screen and not a toast, because the person
+// needs to understand that they cannot sign in yet.
+function requestSentHTML(){
+  return `
+    <div class="auth-screen">
+      <div class="request-sent-icon" aria-hidden="true">✓</div>
+      <div class="auth-h">Your request has been sent</div>
+      <div class="auth-p">
+        Your email address is confirmed and your account has been created,
+        but it is not active yet.
+      </div>
+
+      <div class="request-sent-steps">
+        <div class="rs-step done"><span>1</span> Email confirmed</div>
+        <div class="rs-step done"><span>2</span> Account created</div>
+        <div class="rs-step waiting"><span>3</span> Waiting for an administrator to approve you</div>
+      </div>
+
+      <div class="auth-note" style="margin-top:18px">
+        An administrator reviews every request and decides whether the account
+        is an administrator or a maintenance technician. You will be able to
+        sign in as soon as that is done. If it is taking long, email
+        <a href="mailto:info@ujaqualogic.co.za">info@ujaqualogic.co.za</a>.
+      </div>
+
+      <div class="auth-actions">
+        <button class="btn btn-primary btn-block" onclick="APP.authStep='login';renderAuth()">Back to sign in</button>
+      </div>
+    </div>
+  `;
+}
 function initRegisterForm(){}
 function checkConfirm(){
   const pw = ($('rg-pass')||{}).value || '';
@@ -577,15 +663,11 @@ function doRegister(){
   const phone = normalizePhoneNumber(phoneRaw);
   const pass = ($('rg-pass')||{}).value || '';
   const conf = ($('rg-conf')||{}).value || '';
-  const role = ($('rg-role')||{}).value || 'admin';
-  // Empty check runs first so a blank form does not show the
-  // wrong "not authorised" message.
+  // What the person is applying for. An administrator decides
+  // the real role at approval time, so this is only a request.
+  const requestedRole = ($('rg-role')||{}).value || 'maintenance';
   if(!name || !surname || !email || !phone || !pass || !conf){
     showToast('⚠ Missing fields', 'Please complete all fields');
-    return;
-  }
-  if(!AUTHORIZED_USERS.includes(email)){
-    showToast('🔒 Access Restricted', 'This email address is not authorised to access Aqua Logic systems. Please contact the system administrator.');
     return;
   }
   if(pass.length < 8){
@@ -600,11 +682,11 @@ function doRegister(){
     showToast('⚠ Password mismatch', 'Passwords do not match');
     return;
   }
-  APP.pendingReg = { name, surname, email, phone, pass, role };
+  APP.pendingReg = { name, surname, email, phone, pass, requestedRole };
   APP.emailOTP = genOTP();
   const btn = $('registerBtn');
   setBtnLoading(btn, true, 'Sending code...');
-  emailjs.send("service_pljtgtf","template_j20o1f6",{
+  emailjs.send(MAIL.service, MAIL.otp,{
     email: APP.pendingReg.email,
     otp_code: APP.emailOTP
   })
@@ -626,7 +708,7 @@ function resendOtp(type){
   }
   if(type === 'email'){
     APP.emailOTP = genOTP();
-    emailjs.send("service_pljtgtf","template_j20o1f6",{
+    emailjs.send(MAIL.service, MAIL.otp,{
       email: APP.pendingReg.email,
       otp_code: APP.emailOTP
     })
@@ -660,43 +742,29 @@ function verifyEmail(){
   auth.createUserWithEmailAndPassword(u.email, u.pass)
     .then(cred => {
       // Profile details go in the database. The password does not.
+      //
+      // Note what is missing here. No role and no approval. The
+      // account is written as a request and nothing more, so
+      // creating it grants no access to anything. An
+      // administrator decides the role later, and until they do
+      // the sign in screen will not let this account through.
       const uid = cred.user.uid;
-      const saves = [
-        rtdb.ref('users/' + uid).set({
-          name: u.name,
-          surname: u.surname,
-          email: u.email.toLowerCase(),
-          phone: u.phone,
-          role: u.role || 'admin',
-          createdAt: Date.now()
-        })
-      ];
-      // Registering as maintenance puts you straight into the
-      // call out rotation. The team list is built by the people
-      // who sign up, not typed in by hand.
-      if(u.role === 'maintenance'){
-        saves.push(rtdb.ref('team/' + uid).set({
-          name: `${u.name} ${u.surname}`.trim(),
-          role: 'Maintenance technician',
-          phone: u.phone,
-          email: u.email.toLowerCase(),
-          active: true,
-          lastAssignedAt: 0,
-          joinedAt: Date.now()
-        }));
-      }
-      return Promise.all(saves);
+      return rtdb.ref('users/' + uid).set({
+        name: u.name,
+        surname: u.surname,
+        email: u.email.toLowerCase(),
+        phone: u.phone,
+        requestedRole: u.requestedRole || 'maintenance',
+        status: STATUS.PENDING,
+        createdAt: Date.now()
+      });
     })
     .then(() => auth.signOut())
     .then(() => {
-      const wasTech = u.role === 'maintenance';
       APP.pendingReg = null;
-      showToast('✅ Registration complete',
-        wasTech
-          ? 'You are on the call out rotation. Please sign in.'
-          : 'Please login with your new account');
-      APP.authStep = 'login';
+      APP.authStep = 'requestSent';
       renderAuth();
+      showToast('✅ Request sent', 'An administrator will review your access request');
     })
     .catch(err => {
       console.error(err);
@@ -785,7 +853,7 @@ function resendLoginOtp(){
     return;
   }
   APP.emailOTP = genOTP();
-  emailjs.send("service_pljtgtf","template_j20o1f6",{ email: email, otp_code: APP.emailOTP })
+  emailjs.send(MAIL.service, MAIL.otp,{ email: email, otp_code: APP.emailOTP })
     .then(()=>showToast('📧 Code resent', 'Check your inbox'))
     .catch(err=>{
       console.error(err);
@@ -829,23 +897,32 @@ function startLoginOTP(){
     showToast('⚠ Missing details', 'Enter email and password first');
     return;
   }
-  if(!AUTHORIZED_USERS.includes(email)){
-    showToast('🔒 Unauthorized Access', 'Your account is not approved for Aqua Logic platform access. Please contact your administrator.');
-    return;
-  }
   const btn = $('loginBtn');
   setBtnLoading(btn, true, 'Checking...');
   let uid = null;
   auth.signInWithEmailAndPassword(email, pass)
     .then(cred => { uid = cred.user.uid; return rtdb.ref('users/' + uid).get(); })
     .then(snap => {
+      const profile = snap.val();
+
+      // The password was right, but that only proves who they
+      // are. Whether they are allowed in is a separate question,
+      // and the answer lives in the database.
+      if(!profile){
+        return Promise.reject({ aqua: ['⚠ Profile missing', 'This account has no profile on record. Please register again or contact the administrator.'] });
+      }
+      if(profile.status !== STATUS.APPROVED){
+        const msg = STATUS_MESSAGE[profile.status] || STATUS_MESSAGE[STATUS.PENDING];
+        return Promise.reject({ aqua: msg });
+      }
+
       APP.pendingLogin = Object.assign(
-        { name:'Operator', surname:'', email:email, phone:'', role:'admin' },
-        snap.val() || {},
-        { uid: uid }
+        { name:'Operator', surname:'', email:email, phone:'' },
+        profile,
+        { uid: uid, role: profile.role || 'maintenance' }
       );
       APP.emailOTP = genOTP();
-      return emailjs.send("service_pljtgtf","template_j20o1f6",{
+      return emailjs.send(MAIL.service, MAIL.otp,{
         email: email,
         otp_code: APP.emailOTP
       });
@@ -858,8 +935,20 @@ function startLoginOTP(){
       showToast('📧 OTP sent', 'Check your email');
     })
     .catch(err => {
-      console.error(err);
       setBtnLoading(btn, false);
+
+      // A rejection carrying an 'aqua' message means the password
+      // was correct but the account is not allowed in. Firebase
+      // has already signed them in at this point, so sign them
+      // straight back out before showing the reason.
+      if(err && err.aqua){
+        auth.signOut().catch(e => console.error(e));
+        APP.pendingLogin = null;
+        showToast(err.aqua[0], err.aqua[1], 7000);
+        return;
+      }
+
+      console.error(err);
       switch(err.code){
         case 'auth/user-not-found':
           showToast('❌ Account not found', 'Please register first');
@@ -900,6 +989,12 @@ function launchDashboard(){
     chip.textContent = isAdmin() ? 'Administrator' : 'Maintenance';
     chip.className = 'role-chip ' + (isAdmin() ? 'admin' : 'tech');
   }
+  // Screens that only an administrator should see. A technician
+  // opens the same dashboard, they just do not get the panel
+  // that hands out access.
+  const adminOnly = document.querySelectorAll('[data-admin-only]');
+  adminOnly.forEach(el => { el.style.display = isAdmin() ? '' : 'none'; });
+
   updateTime();
   startIncidentLog();
   renderPressure(null);
@@ -908,6 +1003,7 @@ function launchDashboard(){
   startLiveData();
   startTeam();
   startReports();
+  startAccessRequests();
   renderDispatch();
 }
 function logout(){
@@ -926,6 +1022,7 @@ function logout(){
   stopIncidentLog();
   stopReports();
   stopTeam();
+  stopAccessRequests();
   showToast('👋 Logged out', 'You have been signed out');
 }
 function updateTime(){
@@ -1429,11 +1526,36 @@ function buildFaultReport(){
       : 'No zone data available'
   };
 }
+// Who a fault report goes to. Built from the live database, not
+// from a list typed into this file.
+//
+//   The control room address, always. It is the one inbox that
+//   is watched whether or not anybody is signed in.
+//   Every technician currently on the rotation.
+//   Every approved administrator, when the signed in account is
+//   allowed to read the account list. A technician is not, so
+//   for them the control room address covers it.
+function faultRecipients(){
+  const list = [CONTROL_ROOM_EMAIL];
+
+  APP.team
+    .filter(t => t.active !== false && t.email)
+    .forEach(t => list.push(t.email));
+
+  APP.accessRequests
+    .filter(u => u.status === STATUS.APPROVED && u.role === 'admin' && u.email)
+    .forEach(u => list.push(u.email));
+
+  // One address might appear twice, for example a technician who
+  // is also on the account list. Send to each person once.
+  return Array.from(new Set(list.map(e => String(e).trim().toLowerCase()).filter(Boolean)));
+}
 function openFaultModal(){
   const r = buildFaultReport();
   APP.faultReport = r;
+  const to = faultRecipients();
   $('faultEmailBody').textContent =
-`To          : everyone with dashboard access (${AUTHORIZED_USERS.length} recipients)
+`To          : ${to.join(', ')}
 From        : ${r.operator_email}
 Subject     : [URGENT] Water Leak Detected. ${r.zones}
 INCIDENT REPORT
@@ -1496,8 +1618,8 @@ function sendFaultEmail(){
 
   // One send per recipient. EmailJS templates go to one address
   // at a time, so the list is walked rather than sent in bulk.
-  const sends = AUTHORIZED_USERS.map(address =>
-    emailjs.send("service_pljtgtf", "template_fault", {
+  const sends = faultRecipients().map(address =>
+    emailjs.send(MAIL.service, MAIL.fault, {
       email:          address,
       subject:        `[URGENT] Water Leak Detected. ${r.zones}. Aqua Logic`,
       reply_to:       r.operator_email,
@@ -1658,12 +1780,42 @@ function submitReport(){
   })
   .then(()=>{
     $('reportContent').innerHTML = reportDoneHTML(ref);
+
+    // Copy the report to the control room inbox. The dashboard
+    // already has it, but nobody is necessarily looking at the
+    // dashboard at two in the morning. An email waits.
+    //
+    // This is deliberately after the success screen and it never
+    // blocks. If the mail fails, the report is still saved and
+    // the person has still been given their reference.
+    emailCopyToControlRoom({ ref, name, phone, area, zone, desc, sev });
   })
   .catch(err=>{
     console.error('Report could not be saved', err);
     setBtnLoading(btn, false);
     showToast('❌ Could not send', 'Check your connection and try again');
   });
+}
+// Emails a copy of a public report to the control room inbox.
+// Fails quietly on purpose. The database is the record, the
+// email is only a nudge, so a mail problem must never stop
+// somebody reporting a burst pipe.
+function emailCopyToControlRoom(r){
+  if(typeof emailjs === 'undefined' || !MAIL.publicReport) return;
+
+  emailjs.send(MAIL.service, MAIL.publicReport, {
+    email:      CONTROL_ROOM_EMAIL,
+    subject:    `New leak report ${r.ref}${r.zone ? ' in Zone ' + r.zone : ''}`,
+    reference:  r.ref,
+    reporter:   r.name || 'Not given',
+    phone:      r.phone || 'Not given',
+    reply_to:   '',
+    area:       r.area || 'Not given',
+    zone:       r.zone ? 'Zone ' + r.zone : 'Not stated',
+    severity:   SEV_LABEL[r.sev] || r.sev || 'Not stated',
+    description: r.desc || 'No description given',
+    datetime:   new Date().toLocaleString('en-ZA',{dateStyle:'full',timeStyle:'short'})
+  }).catch(err => console.warn('Report copy not emailed', err));
 }
 function reportDoneHTML(ref){
   return `
@@ -1978,6 +2130,258 @@ function nowTime(){
 }
 
 // ============================================================
+// ACCESS REQUESTS
+//
+// This is what replaced the hardcoded list of email addresses.
+//
+// Anyone can register. Registering writes a pending account and
+// nothing else. An administrator sees it here, decides whether
+// the person is an administrator or a technician, and approves
+// or declines. Approving as a technician is the only thing that
+// puts a name on the call out rotation.
+//
+// Only administrators read this node. The database rules refuse
+// the read for everyone else, so a technician cannot list the
+// other accounts even by typing into the browser console.
+// ============================================================
+let usersRef = null;
+
+function startAccessRequests(){
+  if(usersRef) return;
+  if(!isAdmin()) return;
+
+  usersRef = rtdb.ref('/users');
+  usersRef.on('value', snap => {
+    const rows = [];
+    snap.forEach(child => { rows.push(Object.assign({ uid: child.key }, child.val())); });
+
+    // Newest request first, so the person who has been waiting
+    // the least appears at the bottom, not buried at the top.
+    rows.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    const pendingNow = rows.filter(r => r.status === STATUS.PENDING);
+
+    // Tell the administrator when a new request lands while they
+    // are already looking at the screen. The first pass after
+    // login is skipped, otherwise every existing request would
+    // toast at once.
+    if(APP.seenRequestIds.length){
+      pendingNow
+        .filter(r => !APP.seenRequestIds.includes(r.uid))
+        .forEach(r => showToast('🔔 New access request', `${r.name || 'Someone'} ${r.surname || ''} is asking for access`, 6000));
+    }
+    APP.seenRequestIds = pendingNow.map(r => r.uid);
+
+    APP.accessRequests = rows;
+    renderAccessRequests();
+  }, err => {
+    console.error('Could not read the account list', err);
+    const box = $('requestsList');
+    if(box){
+      box.innerHTML = `<div class="empty-state" style="border:none">Could not load accounts. Check that the database rules are published.</div>`;
+    }
+  });
+}
+function stopAccessRequests(){
+  if(usersRef) usersRef.off();
+  usersRef = null;
+  APP.accessRequests = [];
+  APP.seenRequestIds = [];
+}
+function filterUsers(key){
+  APP.userFilter = key;
+  document.querySelectorAll('[data-uf]').forEach(b => {
+    b.classList.toggle('active', b.dataset.uf === key);
+  });
+  renderAccessRequests();
+}
+function renderAccessRequests(){
+  const box = $('requestsList');
+  if(!box) return;
+
+  const filter  = APP.userFilter || 'pending';
+  const pending = APP.accessRequests.filter(r => r.status === STATUS.PENDING);
+
+  // The count badge on the section heading, and the tab pill.
+  const pill = $('pendingPill');
+  if(pill){
+    pill.textContent = `${pending.length} waiting`;
+    pill.style.display = pending.length ? 'inline-flex' : 'none';
+  }
+  const tabCount = $('pendingTabCount');
+  if(tabCount) tabCount.textContent = pending.length ? ` (${pending.length})` : '';
+
+  // Suspended accounts sit under the declined tab. They are both
+  // "cannot sign in", and a fourth tab for one case is clutter.
+  const rows = APP.accessRequests.filter(r => {
+    const s = r.status || STATUS.PENDING;
+    if(filter === 'declined') return s === STATUS.DECLINED || s === STATUS.SUSPENDED;
+    return s === filter;
+  });
+
+  if(!rows.length){
+    const blank = {
+      pending:  'No requests waiting. New registrations land here.',
+      approved: 'Nobody has been approved yet.',
+      declined: 'Nothing has been declined or suspended.'
+    };
+    box.innerHTML = `<div class="empty-state" style="border:none;padding:22px 0">${blank[filter] || 'Nothing to show.'}</div>`;
+    return;
+  }
+
+  box.innerHTML = rows.map(r => {
+    const full = `${r.name || ''} ${r.surname || ''}`.trim() || 'Unnamed';
+    const when = r.createdAt
+      ? new Date(r.createdAt).toLocaleString('en-ZA',{dateStyle:'medium',timeStyle:'short'})
+      : 'Unknown date';
+    const asked = r.requestedRole === 'admin' ? 'Administrator' : 'Maintenance technician';
+
+    let actions = '';
+    let badge   = '';
+
+    if(r.status === STATUS.PENDING){
+      badge = `<span class="req-badge pending">Waiting</span>`;
+      actions = `
+        <button class="btn btn-primary btn-sm" onclick="approveUser('${r.uid}','admin')">Approve as Administrator</button>
+        <button class="btn btn-primary btn-sm" onclick="approveUser('${r.uid}','maintenance')">Approve as Technician</button>
+        <button class="btn btn-ghost btn-sm" onclick="declineUser('${r.uid}')">Decline</button>`;
+    } else if(r.status === STATUS.APPROVED){
+      badge = `<span class="req-badge approved">${r.role === 'admin' ? 'Administrator' : 'Technician'}</span>`;
+      actions = `
+        <button class="btn btn-ghost btn-sm" onclick="suspendUser('${r.uid}')">Suspend access</button>`;
+    } else if(r.status === STATUS.SUSPENDED){
+      badge = `<span class="req-badge declined">Suspended</span>`;
+      actions = `
+        <button class="btn btn-primary btn-sm" onclick="approveUser('${r.uid}','${r.role || 'maintenance'}')">Restore access</button>`;
+    } else {
+      badge = `<span class="req-badge declined">Declined</span>`;
+      actions = `
+        <button class="btn btn-primary btn-sm" onclick="approveUser('${r.uid}','maintenance')">Approve as Technician</button>
+        <button class="btn btn-primary btn-sm" onclick="approveUser('${r.uid}','admin')">Approve as Administrator</button>`;
+    }
+
+    const decided = r.decidedAt
+      ? `<div class="req-decided">Decided ${new Date(r.decidedAt).toLocaleString('en-ZA',{dateStyle:'short',timeStyle:'short'})}${r.decidedBy ? ' by ' + r.decidedBy : ''}</div>`
+      : '';
+
+    return `
+      <div class="request-card">
+        <div class="req-avatar">${initials(full)}</div>
+        <div class="req-main">
+          <div class="req-name">${full} ${badge}</div>
+          <div class="req-meta">
+            <span>✉ <a href="mailto:${r.email || ''}">${r.email || 'No email'}</a></span>
+            <span>📞 <a href="tel:${r.phone || ''}">${r.phone || 'No number'}</a></span>
+          </div>
+          <div class="req-meta">
+            <span>Applied as: <strong>${asked}</strong></span>
+            <span>Registered ${when}</span>
+          </div>
+          ${decided}
+        </div>
+        <div class="req-actions">${actions}</div>
+      </div>`;
+  }).join('');
+}
+// Approving does two things. It writes the role and the approved
+// status onto the account, and if the role is maintenance it puts
+// the person on the call out rotation using their own details.
+function approveUser(uid, role){
+  if(!isAdmin()){
+    showToast('🔒 Not allowed', 'Only an administrator can approve accounts');
+    return;
+  }
+  const person = APP.accessRequests.find(r => r.uid === uid);
+  if(!person){
+    showToast('⚠ Not found', 'That account is no longer on the list');
+    return;
+  }
+  const full = `${person.name || ''} ${person.surname || ''}`.trim() || 'The account';
+
+  const updates = {};
+  updates['users/' + uid + '/status']    = STATUS.APPROVED;
+  updates['users/' + uid + '/role']      = role;
+  updates['users/' + uid + '/decidedAt'] = Date.now();
+  updates['users/' + uid + '/decidedBy'] = APP.user?.email || 'administrator';
+
+  if(role === 'maintenance'){
+    // The technician's own name and number, taken from what they
+    // typed when they registered. Nothing is invented here.
+    updates['team/' + uid] = {
+      name:  full,
+      role:  'Maintenance technician',
+      phone: person.phone || '',
+      email: person.email || '',
+      active: true,
+      lastAssignedAt: 0,
+      joinedAt: Date.now()
+    };
+  } else {
+    // Somebody moved from technician to administrator comes off
+    // the rotation, so they are not called out any more.
+    updates['team/' + uid] = null;
+  }
+
+  rtdb.ref().update(updates)
+    .then(() => showToast('✅ Approved',
+      role === 'maintenance'
+        ? `${full} can sign in and is on the call out rotation`
+        : `${full} can sign in as an administrator`))
+    .catch(err => {
+      console.error(err);
+      showToast('❌ Not saved', 'Could not approve this account. Check the database rules.');
+    });
+}
+function declineUser(uid){
+  if(!isAdmin()){
+    showToast('🔒 Not allowed', 'Only an administrator can decline accounts');
+    return;
+  }
+  const person = APP.accessRequests.find(r => r.uid === uid);
+  const full = `${person?.name || ''} ${person?.surname || ''}`.trim() || 'The account';
+
+  const updates = {};
+  updates['users/' + uid + '/status']    = STATUS.DECLINED;
+  updates['users/' + uid + '/decidedAt'] = Date.now();
+  updates['users/' + uid + '/decidedBy'] = APP.user?.email || 'administrator';
+  updates['team/' + uid] = null;
+
+  rtdb.ref().update(updates)
+    .then(() => showToast('Declined', `${full} cannot sign in`))
+    .catch(err => {
+      console.error(err);
+      showToast('❌ Not saved', 'Could not decline this account');
+    });
+}
+// Switches off an account that was approved before, without
+// deleting anything. Used when somebody leaves the team.
+function suspendUser(uid){
+  if(!isAdmin()){
+    showToast('🔒 Not allowed', 'Only an administrator can suspend accounts');
+    return;
+  }
+  if(uid === APP.user?.uid){
+    showToast('⚠ Not allowed', 'You cannot suspend the account you are signed in with');
+    return;
+  }
+  const person = APP.accessRequests.find(r => r.uid === uid);
+  const full = `${person?.name || ''} ${person?.surname || ''}`.trim() || 'The account';
+
+  const updates = {};
+  updates['users/' + uid + '/status']    = STATUS.SUSPENDED;
+  updates['users/' + uid + '/decidedAt'] = Date.now();
+  updates['users/' + uid + '/decidedBy'] = APP.user?.email || 'administrator';
+  updates['team/' + uid] = null;
+
+  rtdb.ref().update(updates)
+    .then(() => showToast('⏸ Suspended', `${full} can no longer sign in`))
+    .catch(err => {
+      console.error(err);
+      showToast('❌ Not saved', 'Could not suspend this account');
+    });
+}
+
+// ============================================================
 // MAINTENANCE TEAM AND ROTATION
 //
 // The operator watches the dashboard. The technicians are the
@@ -1989,36 +2393,18 @@ function nowTime(){
 // still works after someone is added, removed, or marked
 // unavailable for the day.
 //
-// >>> PASTE THE REAL TEAM HERE <<<
-// Replace the names and numbers below with the real ones. Use
-// the international format, +27 then the number without the
-// leading zero. This list is only written to the database the
-// first time, when /team does not exist yet. After that the
-// database copy is what counts, so editing this list later will
-// not change anything already saved.
+// There is no starting list and no placeholder names. The only
+// way into /team is for a person to register and for an
+// administrator to approve them as a technician. So every name
+// on the rotation belongs to somebody real, with a phone number
+// that actually rings.
 // ============================================================
-const TEAM_SEED = [
-  { id:'t1', name:'Technician One',   role:'Senior pipe fitter', phone:'+27000000001', active:true, lastAssignedAt:0 },
-  { id:'t2', name:'Technician Two',   role:'Pipe fitter',        phone:'+27000000002', active:true, lastAssignedAt:0 },
-  { id:'t3', name:'Technician Three', role:'Field assistant',    phone:'+27000000003', active:true, lastAssignedAt:0 },
-  { id:'t4', name:'Technician Four',  role:'Standby',            phone:'+27000000004', active:true, lastAssignedAt:0 }
-];
 
 let teamRef = null;
 let dispatchRef = null;
 
 function startTeam(){
   if(teamRef) return;
-
-  // Write the starting list once, only if the node is empty.
-  // Anything already saved is left exactly as it is.
-  rtdb.ref('/team').get().then(snap => {
-    if(!snap.exists()){
-      const seed = {};
-      TEAM_SEED.forEach(t => { seed[t.id] = t; });
-      return rtdb.ref('/team').set(seed);
-    }
-  }).catch(err => console.error('Could not check the team list', err));
 
   teamRef = rtdb.ref('/team');
   teamRef.on('value', snap => {
@@ -2063,7 +2449,16 @@ function renderTeam(){
   const box = $('teamList');
   if(!box) return;
   if(!APP.team.length){
-    box.innerHTML = `<div class="empty-state" style="border:none;padding:20px 0">Loading the team list...</div>`;
+    box.innerHTML = `
+      <div class="empty-state" style="border:none;padding:20px 0">
+        <div style="font-size:1.6rem;margin-bottom:6px">👷</div>
+        <div style="font-weight:700;margin-bottom:4px">No technicians on the rotation yet</div>
+        <div style="font-size:.85rem;opacity:.85">
+          ${isAdmin()
+            ? 'Technicians appear here once they register and you approve them as maintenance.'
+            : 'Technicians appear here once an administrator approves them.'}
+        </div>
+      </div>`;
     return;
   }
   const next = nextTechnician();
@@ -2084,6 +2479,16 @@ function renderTeam(){
     if(off)          tag = '<span class="team-tag off">Unavailable</span>';
     else if(isBusy)  tag = '<span class="team-tag busy">On a job</span>';
     else if(isNext)  tag = '<span class="team-tag next">Next up</span>';
+    // Only an administrator can change who is on the rotation.
+    // A technician looking at this screen just sees the list.
+    const admin = isAdmin() ? `
+        <button class="team-mini" onclick="setTechnicianActive('${t.id}', ${off})"
+                title="${off ? 'Put back on the rotation' : 'Mark as unavailable'}">
+          ${off ? '↩' : '⏸'}
+        </button>
+        <button class="team-mini danger" onclick="removeTechnician('${t.id}')"
+                title="Remove from the rotation">✕</button>` : '';
+
     return `
       <div class="team-row ${isNext ? 'next-up' : ''} ${off ? 'inactive' : ''}">
         <div class="team-avatar">${initials(t.name)}</div>
@@ -2093,8 +2498,51 @@ function renderTeam(){
         </div>
         ${tag}
         <a class="team-call" href="tel:${t.phone || ''}" title="Call ${t.name || ''}">📞</a>
+        ${admin}
       </div>`;
   }).join('');
+}
+// Off the rotation for the day, without deleting the person.
+// nextTechnician() already skips anyone whose active flag is false.
+function setTechnicianActive(id, makeActive){
+  if(!isAdmin()){
+    showToast('🔒 Not allowed', 'Only an administrator can change the rotation');
+    return;
+  }
+  const tech = APP.team.find(t => t.id === id);
+  rtdb.ref('team/' + id + '/active').set(!!makeActive)
+    .then(() => showToast(
+      makeActive ? '✅ Back on the rotation' : '⏸ Marked unavailable',
+      `${tech?.name || 'The technician'} ${makeActive ? 'will be called again' : 'will be skipped until you switch them back on'}`))
+    .catch(err => {
+      console.error(err);
+      showToast('❌ Not saved', 'Could not update the rotation');
+    });
+}
+// Takes the person off the rotation for good. Their user account
+// is left alone, so they can still sign in, they just stop being
+// called out. Suspend the account instead if you want them out
+// of the system entirely.
+function removeTechnician(id){
+  if(!isAdmin()){
+    showToast('🔒 Not allowed', 'Only an administrator can change the rotation');
+    return;
+  }
+  const tech = APP.team.find(t => t.id === id);
+  // If this person is on the current job, clear the job first so
+  // the dispatch card does not keep pointing at somebody who is
+  // no longer on the list.
+  const clearing = (APP.dispatch?.techId === id)
+    ? rtdb.ref('/dispatch/current').remove()
+    : Promise.resolve();
+
+  clearing
+    .then(() => rtdb.ref('team/' + id).remove())
+    .then(() => showToast('🗑 Removed', `${tech?.name || 'The technician'} is no longer on the rotation`))
+    .catch(err => {
+      console.error(err);
+      showToast('❌ Not removed', 'Could not update the rotation');
+    });
 }
 // Writes the assignment. Two things are saved: the job itself,
 // so every dashboard shows it, and the timestamp on the
@@ -2128,6 +2576,12 @@ function assignTechnician(tech, context){
 // a leak is live.
 function autoAssignForLeak(key){
   if(!key || APP.assignedForKey === key) return;
+  // Assigning is a control room action, so it is done by the
+  // administrator's screen. A technician watching the same leak
+  // must not also try to write the assignment, or two browsers
+  // would fight over the same job and the database would refuse
+  // the write anyway.
+  if(!isAdmin()) return;
   APP.assignedForKey = key;
   const tech = nextTechnician();
   if(!tech){

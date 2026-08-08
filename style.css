@@ -1412,6 +1412,155 @@ body{
   transition:background .2s;
 }
 .team-call:hover{background:rgba(0,201,122,.3);}
+/* Small square buttons on a team row. Administrators only. */
+.team-mini{
+  width:30px;
+  height:30px;
+  border-radius:8px;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.16);
+  color:#b6dcf0;
+  cursor:pointer;
+  flex-shrink:0;
+  font-size:.8rem;
+  line-height:1;
+  transition:background .2s,border-color .2s,color .2s;
+}
+.team-mini:hover{background:rgba(91,200,236,.2);border-color:#5bc8ec;color:#fff;}
+.team-mini.danger:hover{background:rgba(255,90,78,.22);border-color:#ff5a4e;color:#ffb3ad;}
+
+/* ============================================================
+   ACCESS REQUESTS
+   Registration is a request. This panel is where an
+   administrator turns a request into an account.
+   ============================================================ */
+.access-note{
+  font-size:.82rem;
+  color:#8fc4e0;
+  margin:-4px 0 14px;
+  line-height:1.5;
+}
+/* One request per row. The action buttons need the width. */
+#requestsList{grid-template-columns:1fr;gap:10px;}
+.request-card{
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+  padding:16px 18px;
+  border-radius:14px;
+  background:var(--card);
+  border:2px solid var(--card-line);
+  box-shadow:0 4px 24px rgba(0,0,0,0.5);
+}
+.req-avatar{
+  width:40px;
+  height:40px;
+  border-radius:11px;
+  background:linear-gradient(135deg,#1e5080,#2b6ea8);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:var(--font-h);
+  font-weight:800;
+  font-size:.85rem;
+  color:#dff2ff;
+  flex-shrink:0;
+}
+.req-main{flex:1;min-width:0;}
+.req-name{
+  font-weight:700;
+  font-size:1rem;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  flex-wrap:wrap;
+}
+.req-meta{
+  display:flex;
+  gap:16px;
+  flex-wrap:wrap;
+  font-size:.78rem;
+  color:#8fc4e0;
+  margin-top:5px;
+}
+.req-meta a{color:#7dd8f0;text-decoration:none;}
+.req-meta a:hover{text-decoration:underline;}
+.req-decided{
+  font-family:var(--font-m);
+  font-size:.7rem;
+  color:#6d9cbd;
+  margin-top:7px;
+}
+.req-badge{
+  font-family:var(--font-m);
+  font-size:.62rem;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  padding:4px 9px;
+  border-radius:999px;
+}
+.req-badge.pending{background:rgba(255,179,0,.15);color:#ffc400;border:1px solid rgba(255,179,0,.4);}
+.req-badge.approved{background:rgba(0,201,122,.18);color:#00e5a0;border:1px solid rgba(0,201,122,.45);}
+.req-badge.declined{background:rgba(255,90,78,.15);color:#ff8a80;border:1px solid rgba(255,90,78,.4);}
+.req-actions{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  flex-shrink:0;
+}
+.btn-sm{padding:8px 14px;font-size:.78rem;}
+@media(max-width:760px){
+  .request-card{flex-wrap:wrap;}
+  .req-actions{flex-direction:row;flex-wrap:wrap;width:100%;}
+}
+
+/* The screen shown after registering, while the request waits. */
+.request-sent-icon{
+  width:54px;
+  height:54px;
+  border-radius:50%;
+  margin:0 auto 16px;
+  background:rgba(0,201,122,.16);
+  border:2px solid rgba(0,201,122,.5);
+  color:#00e5a0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:1.5rem;
+  font-weight:800;
+}
+.request-sent-steps{
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+  margin-top:20px;
+}
+.rs-step{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:11px 14px;
+  border-radius:11px;
+  font-size:.87rem;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.04);
+}
+.rs-step span{
+  width:23px;
+  height:23px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:.72rem;
+  font-weight:800;
+  flex-shrink:0;
+}
+.rs-step.done{border-color:rgba(0,201,122,.4);}
+.rs-step.done span{background:rgba(0,201,122,.22);color:#00e5a0;}
+.rs-step.waiting{border-color:rgba(255,179,0,.4);}
+.rs-step.waiting span{background:rgba(255,179,0,.2);color:#ffc400;}
 
 /* ============================================================
    CITIZEN REPORTS

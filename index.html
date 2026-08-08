@@ -409,6 +409,27 @@
         </div>
       </div>
 
+      <!-- Access requests. Administrators only, hidden for
+           maintenance accounts by launchDashboard(). -->
+      <div class="requests-section" id="accessSection" data-admin-only style="margin-top:16px">
+        <div class="reports-head">
+          <h3 class="dash-section-title">
+            🔑 Access Requests
+            <span class="unread-pill" id="pendingPill" style="display:none">0 waiting</span>
+          </h3>
+          <div class="report-filters">
+            <button class="chip active" data-uf="pending" onclick="filterUsers('pending')">Pending<span id="pendingTabCount"></span></button>
+            <button class="chip" data-uf="approved" onclick="filterUsers('approved')">Approved</button>
+            <button class="chip" data-uf="declined" onclick="filterUsers('declined')">Declined</button>
+          </div>
+        </div>
+        <p class="access-note">
+          Anyone can register on this site. Nobody gets in until you approve them here,
+          and the role you pick is the role they get.
+        </p>
+        <div class="reports-list" id="requestsList" aria-live="polite"></div>
+      </div>
+
       <!-- Citizen reports -->
       <div class="reports-section" id="reportsSection" style="margin-top:16px">
         <div class="reports-head">
