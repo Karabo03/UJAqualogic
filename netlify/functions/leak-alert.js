@@ -40,10 +40,23 @@ const SITE_URL      = process.env.URL || process.env.DEPLOY_URL; // Netlify sets
 // to the next person. Twenty seconds is about five rings.
 const RING_SECONDS = 20;
  
-// One leak means one round of calls. If the sensors flap, or the
-// board resets, we do not want the phone ringing over and over.
-// A second leak inside this window is logged but not called.
-const COOLDOWN_MS = 5 * 60 * 1000;
+// One leak means one call. The incident stays open while the leak
+// is up and closes when it clears, so a leak that clears and comes
+// back is a new incident and rings again.
+//
+// While the leak is still up, it rings again this often. An alarm
+// you can sleep through is not an alarm, so this deliberately does
+// not give up on its own.
+const REMIND_MS = 5 * 60 * 1000;
+ 
+// Zero means no limit. There are only two ways to stop the phone:
+// the leak clears, or an administrator acknowledges it from the
+// dashboard. That is on purpose. A cap would mean the system
+// quietly deciding, at three in the morning, that a burst pipe has
+// had enough attention.
+//
+// The safety valve is the acknowledge button, not a counter.
+const MAX_REMINDERS = 0;
  
 const FN_PATH = '/.netlify/functions/leak-alert';
  
@@ -165,32 +178,66 @@ function spokenAlert(zone, level){
 async function ringAdmin(admins, index, incident){
   const admin = admins[index];
  
-  // Only three parameters, and that is deliberate.
-  //
-  // A trial account rejects the whole request with "invalid or
-  // disallowed parameters" if it is given the words to speak
-  // directly, or asked to report back when the call ends, or
-  // told how long to ring. So Twilio is handed an address to
-  // fetch the words from, and nothing else.
-  //
-  // The cost is that we never hear how the call ended, so on a
-  // trial there is no ringing the next person and no text message
-  // fallback. Upgrading the account restores both without any
-  // change to this file beyond putting the parameters back.
   const speechUrl = `${SITE_URL}/.netlify/functions/leak-twiml`
     + `?zone=${encodeURIComponent(incident.zone || 0)}`
     + (incident.level == null ? '' : `&level=${encodeURIComponent(incident.level)}`);
  
-  const call = await twilioPost('Calls', {
+  // The full request asks Twilio to ring for twenty seconds and
+  // then report back how the call ended. That report is what makes
+  // escalation possible: no answer means ring the next person, and
+  // nobody answering means everyone gets a text.
+  //
+  // A trial account refuses the whole request if it sees any of
+  // those extras, with "invalid or disallowed parameters". So the
+  // full version is tried first and the bare version is used as a
+  // fallback. That way the same file works before and after the
+  // account is upgraded, and escalation switches itself on the
+  // moment Twilio starts allowing it. Nothing to remember, nothing
+  // to redeploy.
+  const bare = {
     To:   admin.phone,
     From: TWILIO_FROM,
     Url:  speechUrl
+  };
+ 
+  const full = Object.assign({}, bare, {
+    Timeout:              String(RING_SECONDS),
+    StatusCallback:       `${SITE_URL}${FN_PATH}`
+                            + `?stage=status&idx=${index}`
+                            + `&incident=${encodeURIComponent(incident.id)}`
+                            + `&secret=${encodeURIComponent(ALERT_SECRET)}`,
+    StatusCallbackEvent:  'completed',
+    StatusCallbackMethod: 'POST'
   });
  
-  // Twilio accepted it, so the cooldown may now legitimately
-  // start. Until this point a repeat attempt is welcome.
+  let call;
+  let escalates = true;
+ 
+  try {
+    call = await twilioPost('Calls', full);
+  } catch (err) {
+    // Only fall back for the trial restriction. Any other refusal
+    // is a real problem and must not be hidden behind a retry.
+    if(!/disallowed parameters|limited parameter access/i.test(String(err.message))){
+      throw err;
+    }
+    escalates = false;
+    call = await twilioPost('Calls', bare);
+  }
+ 
+  await dbPush('alerts/log', {
+    incident: incident.id,
+    action:   'call-mode',
+    mode:     escalates ? 'full, escalation is on' : 'trial account, no escalation',
+    at:       Date.now()
+  });
+ 
+  // Twilio accepted it. Only now does the incident count as one
+  // that has actually rung somebody, which is what stops the next
+  // check ringing again. Until this point a repeat is welcome,
+  // because a failed call must never buy itself silence.
   await dbPut('alerts/current', Object.assign({}, incident, {
-    placed: true, ringing: index
+    placed: true, ringing: index, lastCallAt: Date.now()
   }));
  
   await dbPush('alerts/log', {
@@ -240,28 +287,81 @@ async function handleLeak(body){
   const zone  = Number(body.zone) || 0;
   const level = body.level == null ? null : Number(body.level);
  
-  // Has the phone already rung recently? A flapping sensor or a
-  // board reset must not turn into a phone that will not stop.
-  //
-  // Note the check on `placed`. The cooldown only counts once a
-  // call has genuinely been accepted by Twilio. An attempt that
-  // failed must not buy itself five minutes of silence, which is
-  // exactly the trap this fell into: the first call failed, the
-  // cooldown started anyway, and every retry was then suppressed
-  // by the failure that came before it.
+  // The watcher reports every minute whether or not there is a
+  // leak, so this function can tell an ongoing leak from a new
+  // one. `leaking` is only absent when an older caller is used,
+  // in which case a report means a leak, as it used to.
+  const leaking = body.leaking === undefined ? true : !!body.leaking;
+ 
   const current = await dbGet('alerts/current');
-  if(current && current.placed && current.startedAt
-     && (Date.now() - current.startedAt) < COOLDOWN_MS){
-    await dbPush('alerts/log', {
-      incident: current.id,
-      action:   'suppressed',
-      reason:   'another leak was reported inside the cooldown window',
-      zone,
-      at:       Date.now()
-    });
-    return reply(200, { ok: true, called: false, reason: 'cooldown' });
+  const open    = current && current.placed && !current.closedAt;
+ 
+  // ---- The leak has gone ----------------------------------
+  // This is what makes one leak equal one call. The incident is
+  // closed here, so if the leak returns later it is treated as a
+  // fresh incident and rings properly instead of being mistaken
+  // for the old one.
+  if(!leaking){
+    if(open){
+      await dbPut('alerts/current', Object.assign({}, current, {
+        stage: 'cleared', closedAt: Date.now()
+      }));
+      await dbPush('alerts/log', {
+        incident: current.id,
+        action:   'cleared',
+        zone:     current.zone || 0,
+        at:       Date.now()
+      });
+      return reply(200, { ok: true, called: false, reason: 'leak cleared, incident closed' });
+    }
+    return reply(200, { ok: true, called: false, reason: 'nothing wrong' });
   }
  
+  // ---- Still the same leak we already rang about ----------
+  if(open){
+    const lastCall  = current.lastCallAt || current.startedAt || 0;
+    const reminders = current.reminders || 0;
+    const waited    = Date.now() - lastCall;
+ 
+    let reason = null;
+    if(current.acknowledged)
+      reason = 'an administrator has acknowledged this leak';
+    else if(MAX_REMINDERS > 0 && reminders >= MAX_REMINDERS)
+      reason = 'reminder limit reached, staying quiet';
+    else if(waited < REMIND_MS)
+      reason = 'rang recently, waiting for the next reminder';
+ 
+    if(reason){
+      await dbPush('alerts/log', {
+        incident: current.id, action: 'suppressed', reason, zone, at: Date.now()
+      });
+      return reply(200, { ok: true, called: false, reason });
+    }
+ 
+    // Still leaking half an hour on and nobody has said they have
+    // seen it. Ring once more.
+    const admins = await approvedAdmins();
+    if(!admins.length) return reply(200, { ok: true, called: false, reason: 'no administrators to ring' });
+ 
+    const reminder = Object.assign({}, current, {
+      reminders: reminders + 1, zone, level, stage: 'reminding'
+    });
+    await dbPut('alerts/current', reminder);
+ 
+    try {
+      await ringAdmin(admins, 0, reminder);
+    } catch (err) {
+      const why = String(err.message || err).slice(0, 300);
+      await dbPush('alerts/log', {
+        incident: current.id, action: 'call-failed', reason: why, zone, at: Date.now()
+      });
+      return reply(200, { ok: false, called: false, reason: why });
+    }
+ 
+    return reply(200, { ok: true, called: true, reason: `reminder ${reminders + 1}` });
+  }
+ 
+  // ---- A new leak -----------------------------------------
   const admins = await approvedAdmins();
   if(!admins.length){
     await dbPush('alerts/log', {
