@@ -165,20 +165,26 @@ function spokenAlert(zone, level){
 async function ringAdmin(admins, index, incident){
   const admin = admins[index];
  
-  const callbackUrl = `${SITE_URL}${FN_PATH}`
-    + `?stage=status`
-    + `&idx=${index}`
-    + `&incident=${encodeURIComponent(incident.id)}`
-    + `&secret=${encodeURIComponent(ALERT_SECRET)}`;
+  // Only three parameters, and that is deliberate.
+  //
+  // A trial account rejects the whole request with "invalid or
+  // disallowed parameters" if it is given the words to speak
+  // directly, or asked to report back when the call ends, or
+  // told how long to ring. So Twilio is handed an address to
+  // fetch the words from, and nothing else.
+  //
+  // The cost is that we never hear how the call ended, so on a
+  // trial there is no ringing the next person and no text message
+  // fallback. Upgrading the account restores both without any
+  // change to this file beyond putting the parameters back.
+  const speechUrl = `${SITE_URL}/.netlify/functions/leak-twiml`
+    + `?zone=${encodeURIComponent(incident.zone || 0)}`
+    + (incident.level == null ? '' : `&level=${encodeURIComponent(incident.level)}`);
  
   const call = await twilioPost('Calls', {
-    To:                  admin.phone,
-    From:                TWILIO_FROM,
-    Twiml:               spokenAlert(incident.zone, incident.level),
-    Timeout:             String(RING_SECONDS),
-    StatusCallback:      callbackUrl,
-    StatusCallbackEvent: 'completed',
-    StatusCallbackMethod:'POST'
+    To:   admin.phone,
+    From: TWILIO_FROM,
+    Url:  speechUrl
   });
  
   // Twilio accepted it, so the cooldown may now legitimately
