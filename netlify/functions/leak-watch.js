@@ -27,18 +27,37 @@ const DB_SECRET    = process.env.FIREBASE_DB_SECRET;
 const ALERT_SECRET = process.env.ALERT_SECRET;
 const SITE_URL     = process.env.URL || 'https://ujaqualogic.netlify.app';
  
+// Writes a note into the database saying what happened on this
+// run. Netlify's own log cannot be read from everywhere, and a
+// watcher that is silent because it never woke up looks exactly
+// like a watcher that is silent because it saw nothing wrong.
+// This tells the two apart.
+async function heartbeat(note) {
+  try {
+    await fetch(`${DB_URL}/alerts/heartbeat.json?auth=${DB_SECRET}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ at: Date.now() }, note))
+    });
+  } catch (err) {
+    console.error('heartbeat failed:', err.message);
+  }
+}
+ 
 exports.handler = async () => {
   if (!DB_SECRET || !ALERT_SECRET) {
     console.error('leak-watch is missing FIREBASE_DB_SECRET or ALERT_SECRET');
     return { statusCode: 500 };
   }
  
+  await heartbeat({ stage: 'woke up' });
+ 
   try {
     // One read of the whole node, so the leak and the tank level
     // are guaranteed to come from the same moment.
     const res = await fetch(`${DB_URL}/aqualogic.json?auth=${DB_SECRET}`);
     if (!res.ok) {
-      console.error('could not read the database:', res.status);
+      await heartbeat({ stage: 'could not read the database', status: res.status });
       return { statusCode: 500 };
     }
  
@@ -46,9 +65,7 @@ exports.handler = async () => {
     const leak = data.leak || {};
  
     if (!leak.detected) {
-      // Nothing wrong. Say so in the log so a quiet minute is
-      // distinguishable from a watcher that never ran.
-      console.log('no leak');
+      await heartbeat({ stage: 'ran, no leak' });
       return { statusCode: 200 };
     }
  
@@ -57,25 +74,37 @@ exports.handler = async () => {
                   ? Number(data.tank.level)
                   : null;
  
-    console.log(`leak seen in zone ${zone}, handing over to leak-alert`);
+    const alertUrl = `${SITE_URL}/.netlify/functions/leak-alert`;
+    await heartbeat({ stage: 'leak seen, calling leak-alert', zone, level, alertUrl });
  
     // Hand it to leak-alert exactly as the board would have. It
     // will ignore this if it has already rung for the same leak,
     // so a leak lasting ten minutes still only rings once.
-    const handover = await fetch(`${SITE_URL}/.netlify/functions/leak-alert`, {
+    const handover = await fetch(alertUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ secret: ALERT_SECRET, zone, level })
     });
  
-    const result = await handover.json().catch(() => ({}));
-    console.log('leak-alert replied:', JSON.stringify(result));
+    // Read it as plain text first. If leak-alert crashed, the reply
+    // is an error page rather than JSON, and that page is exactly
+    // the thing worth seeing.
+    const raw = await handover.text();
+ 
+    await heartbeat({
+      stage:  'leak-alert replied',
+      zone,
+      status: handover.status,
+      reply:  raw.slice(0, 500)
+    });
  
     return { statusCode: 200 };
  
   } catch (err) {
-    console.error('leak-watch failed:', err.message);
+    await heartbeat({ stage: 'leak-watch itself failed', error: String(err.message).slice(0, 300) });
     return { statusCode: 500 };
   }
 };
  
+
+
