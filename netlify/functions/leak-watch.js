@@ -44,6 +44,17 @@ async function heartbeat(note) {
   }
 }
  
+// Hands the situation to leak-alert, which owns every decision
+// about who gets rung and when. This only reports what it saw.
+async function reportToAlert(payload) {
+  const res = await fetch(`${SITE_URL}/.netlify/functions/leak-alert`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ secret: ALERT_SECRET }, payload))
+  });
+  return { status: res.status, raw: (await res.text()).slice(0, 500) };
+}
+ 
 exports.handler = async () => {
   if (!DB_SECRET || !ALERT_SECRET) {
     console.error('leak-watch is missing FIREBASE_DB_SECRET or ALERT_SECRET');
@@ -64,7 +75,12 @@ exports.handler = async () => {
     const data = (await res.json()) || {};
     const leak = data.leak || {};
  
+    // A quiet minute is reported too, not just a leaking one.
+    // That is what lets leak-alert close an incident when the
+    // water stops, so the next leak counts as a new one and rings
+    // properly instead of being mistaken for the old one.
     if (!leak.detected) {
+      await reportToAlert({ leaking: false });
       await heartbeat({ stage: 'ran, no leak' });
       return { statusCode: 200 };
     }
@@ -74,28 +90,21 @@ exports.handler = async () => {
                   ? Number(data.tank.level)
                   : null;
  
-    const alertUrl = `${SITE_URL}/.netlify/functions/leak-alert`;
-    await heartbeat({ stage: 'leak seen, calling leak-alert', zone, level, alertUrl });
+    await heartbeat({ stage: 'leak seen, calling leak-alert', zone, level });
  
     // Hand it to leak-alert exactly as the board would have. It
     // will ignore this if it has already rung for the same leak,
     // so a leak lasting ten minutes still only rings once.
-    const handover = await fetch(alertUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret: ALERT_SECRET, zone, level })
-    });
- 
-    // Read it as plain text first. If leak-alert crashed, the reply
-    // is an error page rather than JSON, and that page is exactly
-    // the thing worth seeing.
-    const raw = await handover.text();
+    // The reply is read as plain text, not JSON. If leak-alert
+    // ever crashes, what comes back is an error page rather than
+    // JSON, and that page is exactly the thing worth seeing.
+    const handover = await reportToAlert({ leaking: true, zone, level });
  
     await heartbeat({
       stage:  'leak-alert replied',
       zone,
       status: handover.status,
-      reply:  raw.slice(0, 500)
+      reply:  handover.raw
     });
  
     return { statusCode: 200 };
