@@ -181,6 +181,12 @@ async function ringAdmin(admins, index, incident){
     StatusCallbackMethod:'POST'
   });
  
+  // Twilio accepted it, so the cooldown may now legitimately
+  // start. Until this point a repeat attempt is welcome.
+  await dbPut('alerts/current', Object.assign({}, incident, {
+    placed: true, ringing: index
+  }));
+ 
   await dbPush('alerts/log', {
     incident: incident.id,
     action:   'called',
@@ -230,8 +236,16 @@ async function handleLeak(body){
  
   // Has the phone already rung recently? A flapping sensor or a
   // board reset must not turn into a phone that will not stop.
+  //
+  // Note the check on `placed`. The cooldown only counts once a
+  // call has genuinely been accepted by Twilio. An attempt that
+  // failed must not buy itself five minutes of silence, which is
+  // exactly the trap this fell into: the first call failed, the
+  // cooldown started anyway, and every retry was then suppressed
+  // by the failure that came before it.
   const current = await dbGet('alerts/current');
-  if(current && current.startedAt && (Date.now() - current.startedAt) < COOLDOWN_MS){
+  if(current && current.placed && current.startedAt
+     && (Date.now() - current.startedAt) < COOLDOWN_MS){
     await dbPush('alerts/log', {
       incident: current.id,
       action:   'suppressed',
@@ -265,7 +279,31 @@ async function handleLeak(body){
   };
   await dbPut('alerts/current', incident);
  
-  await ringAdmin(admins, 0, incident);
+  // If Twilio refuses, the reason must not disappear into a log
+  // nobody can reach. It is written into the database instead,
+  // where it can be read from anywhere.
+  try {
+    await ringAdmin(admins, 0, incident);
+  } catch (err) {
+    const reason = String(err.message || err).slice(0, 300);
+ 
+    await dbPush('alerts/log', {
+      incident: incident.id,
+      action:   'call-failed',
+      reason,
+      phone:    admins[0].phone,
+      zone,
+      at:       Date.now()
+    });
+ 
+    // Left without `placed`, so the next check is free to try
+    // again rather than being blocked by this failure.
+    await dbPut('alerts/current', Object.assign({}, incident, {
+      stage: 'failed', reason
+    }));
+ 
+    return reply(200, { ok: false, called: false, reason });
+  }
  
   return reply(200, { ok: true, called: true, ringing: admins[0].phone, incident: incident.id });
 }
@@ -363,3 +401,5 @@ exports.handler = async (event) => {
   }
 };
  
+
+
