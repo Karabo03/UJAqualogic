@@ -194,9 +194,24 @@ exports.handler = async (event) => {
     const technicianId = body.technicianId;
     if(!technicianId) return reply(400, { error: 'no technician was chosen' });
  
-    const tech = await dbGet(`users/${technicianId}`);
-    if(!tech || tech.status !== 'approved'){
-      return reply(400, { error: 'that technician is not an approved user' });
+    // The dashboard picks technicians from /team, so that is checked
+    // first. /users is the fallback, because the two share the same
+    // account IDs and a person can exist in one but not the other.
+    let tech = await dbGet(`team/${technicianId}`);
+    let source = 'team';
+ 
+    if(!tech){
+      tech = await dbGet(`users/${technicianId}`);
+      source = 'users';
+      if(tech && tech.status !== 'approved'){
+        return reply(400, { error: 'that technician is not an approved user' });
+      }
+    } else if(tech.active === false){
+      return reply(400, { error: `${tech.name || 'that technician'} is marked inactive` });
+    }
+ 
+    if(!tech){
+      return reply(400, { error: 'no such technician' });
     }
     if(!tech.phone || String(tech.phone).trim().length < 8){
       return reply(400, { error: `${tech.name || 'that technician'} has no phone number on record` });
@@ -259,6 +274,7 @@ exports.handler = async (event) => {
       action:     'dispatched',
       technician: tech.name || '',
       phone:      tech.phone,
+      foundIn:    source,
       by:         sentBy,
       zone,
       call:       sent.call.ok ? 'sent' : `failed: ${sent.call.reason}`,
@@ -271,6 +287,7 @@ exports.handler = async (event) => {
       acknowledged: true,
       technician: tech.name || '',
       phone: tech.phone,
+      foundIn: source,
       call: sent.call,
       sms: sent.sms
     });
@@ -281,8 +298,5 @@ exports.handler = async (event) => {
   }
 };
  
-
-
-
 
 
