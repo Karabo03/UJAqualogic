@@ -55,7 +55,10 @@ const $ = (id) => document.getElementById(id);
 // signed into the dashboard. Fault reports and public leak
 // reports both copy it, so nothing is missed overnight.
 // ============================================================
-const CONTROL_ROOM_EMAIL = 'info@ujaqualogic.co.za';
+// One group address rather than a list of individuals. Who is on
+// the team is managed in the mail account, not in this file, so
+// nobody has to edit code when somebody joins or leaves.
+const CONTROL_ROOM_EMAIL = 'team@ujaqualogic.co.za';
 
 // EmailJS service and templates. Kept together so there is one
 // place to change them.
@@ -1334,7 +1337,6 @@ function renderZones(data){
         </div>
         <div style="margin-left:auto;display:flex;gap:8px">
           <button class="ctrl" onclick="acknowledge('${z.id}')">Acknowledge</button>
-          <button class="ctrl" onclick="silenceAlarm('${z.id}')">🔕 Silence my phone</button>
         </div>
       </div>
     `;
@@ -2498,7 +2500,9 @@ function renderTeam(){
           <div class="team-sub">${t.role || 'Technician'} · Last job: ${last}</div>
         </div>
         ${tag}
-        <a class="team-call" href="tel:${t.phone || ''}" title="Call ${t.name || ''}">📞</a>
+        ${isAdmin() ? `<button class="team-call" onclick="sendTechnician('${t.id}')"
+          title="Call, text and email ${t.name || ''}">📣</button>`
+        : `<a class="team-call" href="tel:${t.phone || ''}" title="Call ${t.name || ''}">📞</a>`}
         ${admin}
       </div>`;
   }).join('');
@@ -2690,13 +2694,17 @@ function dispatchActionsHTML(d){
   // the automatic send fails, or when the operator simply wants to
   // speak to the person directly. They open the phone's own apps
   // and cost nothing.
+  // Four buttons, all of which do the work themselves. The old
+  // "ring them myself" and "text myself" links were removed: they
+  // handed the number to whatever app the computer happened to
+  // have, which on a desktop means a dialog asking you to pick
+  // Skype. The send button does the job properly.
   return `
     <div class="dispatch-actions">
       <button id="notifyBtn" class="call-btn" onclick="notifyTechnician()">
         📣 Send ${(d.techName || '').split(' ')[0]}: call, text and email
       </button>
-      <a class="call-btn" href="tel:${d.techPhone || ''}">📞 Ring them myself</a>
-      <a class="sms-btn" href="${smsLink(d.techPhone, jobSmsText(d))}">💬 Text myself</a>
+      <button class="ctrl" onclick="silenceAlarm()">🔕 Silence my phone</button>
       <button class="ctrl" onclick="reassignDispatch()">Hand to next technician</button>
       <button class="ctrl" onclick="clearDispatch()">Job complete</button>
     </div>`;
@@ -2871,6 +2879,45 @@ async function dispatchNextNow(){
   // because that only updates once Firebase has echoed the write
   // back, which is a moment later. Waiting on it would mean the
   // first press silently did nothing.
+  await notifyTechnician({
+    techId:    tech.id,
+    techName:  tech.name,
+    techPhone: tech.phone,
+    techEmail: tech.email || '',
+    zone,
+    assignedBy: APP.user?.name || 'Control room'
+  });
+}
+
+// Sends a named technician rather than whoever the rotation picked.
+//
+// The rotation is the sensible default, but an operator sometimes
+// knows something it does not: who is nearest, who is already out,
+// who has the right van. This is that override, and it does the
+// same job as the main button rather than handing the number to
+// the phone app and hoping.
+async function sendTechnician(id){
+  if(!isAdmin()){
+    showToast('Not allowed', 'Only an administrator can dispatch.');
+    return;
+  }
+
+  const tech = (APP.team || []).find(t => t.id === id);
+  if(!tech){
+    showToast('Not found', 'That technician is no longer on the team list.');
+    return;
+  }
+  if(tech.active === false){
+    showToast('Marked unavailable', `${tech.name} is switched off in the team list.`);
+    return;
+  }
+
+  const zone = (APP.leakZones && APP.leakZones.length)
+    ? APP.leakZones.map(z => 'Zone ' + z).join(', ')
+    : 'Zone unknown';
+
+  assignTechnician(tech, { reason: 'Chosen by the operator', zone });
+
   await notifyTechnician({
     techId:    tech.id,
     techName:  tech.name,
