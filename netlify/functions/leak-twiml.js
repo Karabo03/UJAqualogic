@@ -27,12 +27,19 @@ exports.handler = async (event) => {
  
   const zone  = Number(q.zone) || 0;
   const level = q.level == null || q.level === '' ? null : Number(q.level);
+  const tech  = q.tech ? String(q.tech).slice(0, 40) : null;
  
   const where = zone ? `zone ${zone}` : 'the pipeline';
  
-  const line = `Aqua Logic alert. A leak has been detected in ${where}. `
-             + (level != null && !isNaN(level) ? `Reservoir level is ${Math.round(level)} percent. ` : '')
-             + `Please open the dashboard and dispatch a technician.`;
+  // Two different people get called, and they need to hear two
+  // different things. The administrator is being asked to decide.
+  // The technician is being told to go.
+  const line = tech
+    ? `Aqua Logic dispatch. ${tech}, you have been assigned a leak in ${where}. `
+      + `Please check the dashboard and attend to it.`
+    : `Aqua Logic alert. A leak has been detected in ${where}. `
+      + (level != null && !isNaN(level) ? `Reservoir level is ${Math.round(level)} percent. ` : '')
+      + `Please open the dashboard and dispatch a technician.`;
  
   // Said twice with pauses. The first second of a call is always
   // lost while the phone is being picked up, so a message said
