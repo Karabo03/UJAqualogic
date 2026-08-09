@@ -189,8 +189,38 @@ exports.handler = async (event) => {
  
     const sentBy = `${caller.name || ''} ${caller.surname || ''}`.trim() || claims.email || 'an administrator';
  
-    // ---- 3. Who are we sending? --------------------------
     const body = JSON.parse(event.body || '{}');
+ 
+    // ---- Silence the alarm, and nothing else -------------
+    //
+    // There has to be a way to say "I have seen this" that does
+    // not require sending anybody out. An alarm designed never to
+    // give up needs an off switch that is always reachable,
+    // otherwise the only way to stop your own phone is to run to
+    // the equipment, which is backwards.
+    if(body.acknowledgeOnly){
+      const open = await dbGet('alerts/current');
+      if(!open || !open.id || open.closedAt){
+        return reply(200, { ok: true, acknowledged: false, reason: 'there is no active alarm' });
+      }
+ 
+      await dbPatch('alerts/current', {
+        acknowledged:   true,
+        acknowledgedBy: sentBy,
+        acknowledgedAt: Date.now()
+      });
+      await dbPush('alerts/log', {
+        incident: open.id,
+        action:   'acknowledged',
+        by:       sentBy,
+        zone:     open.zone || 0,
+        at:       Date.now()
+      });
+ 
+      return reply(200, { ok: true, acknowledged: true, by: sentBy });
+    }
+ 
+    // ---- 3. Who are we sending? --------------------------
     const technicianId = body.technicianId;
     if(!technicianId) return reply(400, { error: 'no technician was chosen' });
  
