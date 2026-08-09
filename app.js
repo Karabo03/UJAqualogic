@@ -1334,6 +1334,7 @@ function renderZones(data){
         </div>
         <div style="margin-left:auto;display:flex;gap:8px">
           <button class="ctrl" onclick="acknowledge('${z.id}')">Acknowledge</button>
+          <button class="ctrl" onclick="silenceAlarm('${z.id}')">🔕 Silence my phone</button>
         </div>
       </div>
     `;
@@ -2725,11 +2726,23 @@ function renderDispatch(){
   if(!d){
     const next = nextTechnician();
     if(meta) meta.textContent = 'Nobody dispatched';
+
+    // The send button used to exist only once somebody had been
+    // assigned, which meant that during a live leak there was
+    // often nothing to press. Now the empty state offers to do
+    // both at once: assign the next person and send them.
     box.innerHTML = `
       <div class="dispatch-empty">
         No active dispatch. Nothing needs a technician right now.
         ${next ? `<br><br>Next in the rotation is <strong style="color:#00e5a0">${next.name}</strong>.` : ''}
-      </div>`;
+      </div>
+      ${next && isAdmin() ? `
+        <div class="dispatch-actions">
+          <button class="call-btn" onclick="dispatchNextNow()">
+            📣 Send ${next.name.split(' ')[0]} now: call, text and email
+          </button>
+          <button class="ctrl" onclick="silenceAlarm()">🔕 Silence my phone</button>
+        </div>` : ''}`;
     return;
   }
 
@@ -2784,21 +2797,6 @@ function renderDispatch(){
 // The credentials must never be written into this file. Anyone
 // can open app.js in the browser and read it.
 // ------------------------------------------------------------
-// ===================== EMAIL SETTINGS =====================
-//
-// Paste the three values from your EmailJS account between the
-// quotes. Until you do, the call and the text still go out and
-// only the email is skipped, so nothing breaks by leaving these
-// empty for now.
-//
-// These are safe to have here. EmailJS is designed to be used
-// from a browser and the public key is meant to be public.
-const EMAILJS = {
-  serviceId:  '',   // looks like service_ab12cde
-  templateId: '',   // looks like template_xy34fgh
-  publicKey:  ''    // a short string
-};
-
 // Pulls the zone number out of text like "Zone 2" or
 // "Zone 1, Zone 3". The dispatch record stores it as words for
 // display, but the phone call needs the bare number.
@@ -2818,8 +2816,73 @@ function zoneNumber(text){
 // the phone account details must never sit in a file the public
 // can read. The email goes straight from this browser through
 // EmailJS, which is built for exactly that.
-async function notifyTechnician(){
-  const d = APP.dispatch;
+// Silences the alarm without sending anybody out.
+//
+// The alarm rings every five minutes and never gives up, which is
+// correct for a burst pipe. It is only correct if there is always
+// a way to say you have seen it. This is that way, and it is on
+// the leak card itself so it is reachable the moment you look at
+// the screen.
+async function silenceAlarm(zone){
+  try {
+    const token = await auth.currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/notify-technician', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acknowledgeOnly: true })
+    });
+    const out = await res.json();
+
+    if(out.acknowledged){
+      showToast('🔕 Alarm silenced', 'Your phone will stop ringing. The leak is still open.');
+      logEvent('system', `Alarm acknowledged by ${out.by || 'operator'}`, nowTime(), zone ? `Zone ${zone}` : 'System');
+    } else {
+      showToast('Nothing to silence', out.reason || out.error || 'There is no active alarm.');
+    }
+  } catch (err) {
+    showToast('Could not silence it', err.message);
+  }
+}
+
+// Assigns whoever is next on the rotation and sends them, in one
+// press. This exists because the send button used to live inside
+// the dispatch card, which is empty until an assignment has
+// happened, so during a real leak there was often no button to
+// press at all. Now there always is.
+async function dispatchNextNow(){
+  if(!isAdmin()){
+    showToast('Not allowed', 'Only an administrator can dispatch.');
+    return;
+  }
+
+  const tech = nextTechnician();
+  if(!tech){
+    showToast('Nobody available', 'Every technician is marked unavailable. Check the team list.');
+    return;
+  }
+
+  const zone = (APP.leakZones && APP.leakZones.length)
+    ? APP.leakZones.map(z => 'Zone ' + z).join(', ')
+    : 'Zone unknown';
+
+  assignTechnician(tech, { reason: 'Dispatched by operator', zone });
+
+  // The job is built here rather than read back from APP.dispatch,
+  // because that only updates once Firebase has echoed the write
+  // back, which is a moment later. Waiting on it would mean the
+  // first press silently did nothing.
+  await notifyTechnician({
+    techId:    tech.id,
+    techName:  tech.name,
+    techPhone: tech.phone,
+    techEmail: tech.email || '',
+    zone,
+    assignedBy: APP.user?.name || 'Control room'
+  });
+}
+
+async function notifyTechnician(job){
+  const d = job || APP.dispatch;
   if(!d || !d.techId){
     showToast('Nobody to send', 'Assign a technician first.');
     return;
@@ -2867,22 +2930,38 @@ async function notifyTechnician(){
   }
 
   // ---- The email --------------------------------------------
-  // Skipped quietly if the settings above are still blank, and a
-  // failure here never stops the report of the call and the text.
+  //
+  // This reuses the fault report template rather than adding a
+  // third one, because a dispatch is a fault report addressed to
+  // one person, and the free EmailJS plan does not give unlimited
+  // templates. The field names below are the ones that template
+  // already expects.
+  //
+  // A failure here never stops the report of the call and the
+  // text. Losing the email is a nuisance. Losing the knowledge
+  // that the phone rang is not.
   let emailOk = false;
 
-  if(EMAILJS.serviceId && EMAILJS.templateId && EMAILJS.publicKey && window.emailjs){
+  if(window.emailjs && d.techEmail){
+    const level = APP.liveData?.tank?.level != null
+      ? Math.round(APP.liveData.tank.level) + '%'
+      : 'not stated';
+
     try {
-      await emailjs.send(EMAILJS.serviceId, EMAILJS.templateId, {
-        to_email:        d.techEmail || '',
-        technician_name: d.techName  || '',
-        zone:            d.zone      || 'Unknown zone',
-        level:           APP.liveData?.tank?.level != null
-                           ? Math.round(APP.liveData.tank.level) + '%'
-                           : 'not stated',
-        dispatched_by:   d.assignedBy || 'Control room',
-        time:            nowTime()
-      }, EMAILJS.publicKey);
+      await emailjs.send(MAIL.service, MAIL.fault, {
+        email:          d.techEmail,
+        subject:        `[DISPATCH] ${d.zone || 'Leak'} assigned to you. Aqua Logic`,
+        reply_to:       APP.user?.email || '',
+        zones:          d.zone || 'Zone unknown',
+        datetime:       new Date().toLocaleString('en-ZA'),
+        operator:       d.assignedBy || APP.user?.name || 'Control room',
+        contact:        APP.user?.phone || '',
+        operator_email: APP.user?.email || '',
+        assigned:       d.techName || '',
+        flow:           `Reservoir level ${level}`,
+        details:        `You have been dispatched to ${d.zone || 'a leak'}. `
+                      + `Please attend and mark the job complete on the dashboard when done.`
+      });
       emailOk = true;
     } catch (err) {
       console.error('Email not sent', err);
