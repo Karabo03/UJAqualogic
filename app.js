@@ -2552,6 +2552,9 @@ function assignTechnician(tech, context){
     techId:    tech.id,
     techName:  tech.name,
     techPhone: tech.phone,
+    // Carried through so the dispatch email has somewhere to go
+    // without another lookup at the moment the button is pressed.
+    techEmail: tech.email || '',
     techRole:  tech.role || 'Technician',
     reason:    context?.reason || 'Leak detected',
     zone:      context?.zone || 'Unknown zone',
@@ -2568,8 +2571,12 @@ function assignTechnician(tech, context){
     nowTime(),
     job.zone);
 
-  notifyTechnician(tech, job);
-  showToast('🔧 Technician assigned', `${tech.name} is on ${job.zone}. Tap the call button to reach them.`);
+  // Assigning does not phone anybody by itself. Sending a person
+  // out is a decision, and decisions get their own button, so that
+  // shuffling the rotation cannot accidentally ring somebody at
+  // three in the morning or spend money by mistake.
+  showToast('🔧 Technician assigned',
+    `${tech.name} is on ${job.zone}. Press Send to call, text and email them.`);
 }
 // Called when a sensor leak is confirmed. It only fires once per
 // alarm, because renderZones runs several times a second while
@@ -2675,10 +2682,20 @@ function dispatchActionsHTML(d){
     </div>`;
   }
 
+  // The first button is the important one. It sends the technician
+  // out and silences the alarm in a single press.
+  //
+  // The two links below it stay because they are the fallback when
+  // the automatic send fails, or when the operator simply wants to
+  // speak to the person directly. They open the phone's own apps
+  // and cost nothing.
   return `
     <div class="dispatch-actions">
-      <a class="call-btn" href="tel:${d.techPhone || ''}">📞 Call ${(d.techName || '').split(' ')[0]}</a>
-      <a class="sms-btn" href="${smsLink(d.techPhone, jobSmsText(d))}">💬 Send SMS</a>
+      <button id="notifyBtn" class="call-btn" onclick="notifyTechnician()">
+        📣 Send ${(d.techName || '').split(' ')[0]}: call, text and email
+      </button>
+      <a class="call-btn" href="tel:${d.techPhone || ''}">📞 Ring them myself</a>
+      <a class="sms-btn" href="${smsLink(d.techPhone, jobSmsText(d))}">💬 Text myself</a>
       <button class="ctrl" onclick="reassignDispatch()">Hand to next technician</button>
       <button class="ctrl" onclick="clearDispatch()">Job complete</button>
     </div>`;
@@ -2767,8 +2784,133 @@ function renderDispatch(){
 // The credentials must never be written into this file. Anyone
 // can open app.js in the browser and read it.
 // ------------------------------------------------------------
-function notifyTechnician(tech, job){
-  console.log(`[dispatch] ${tech.name} on ${tech.phone} for ${job.zone}`);
+// ===================== EMAIL SETTINGS =====================
+//
+// Paste the three values from your EmailJS account between the
+// quotes. Until you do, the call and the text still go out and
+// only the email is skipped, so nothing breaks by leaving these
+// empty for now.
+//
+// These are safe to have here. EmailJS is designed to be used
+// from a browser and the public key is meant to be public.
+const EMAILJS = {
+  serviceId:  '',   // looks like service_ab12cde
+  templateId: '',   // looks like template_xy34fgh
+  publicKey:  ''    // a short string
+};
+
+// Pulls the zone number out of text like "Zone 2" or
+// "Zone 1, Zone 3". The dispatch record stores it as words for
+// display, but the phone call needs the bare number.
+function zoneNumber(text){
+  const found = String(text || '').match(/\d+/);
+  return found ? Number(found[0]) : 0;
+}
+
+// ===================== DISPATCH A TECHNICIAN =====================
+//
+// One press does two jobs, because for the person at the desk they
+// are one action: it tells the system the leak has been seen, which
+// stops the phone ringing every five minutes, and it sends the
+// technician out by phone, text and email.
+//
+// The call and the text are placed by Netlify, not here, because
+// the phone account details must never sit in a file the public
+// can read. The email goes straight from this browser through
+// EmailJS, which is built for exactly that.
+async function notifyTechnician(){
+  const d = APP.dispatch;
+  if(!d || !d.techId){
+    showToast('Nobody to send', 'Assign a technician first.');
+    return;
+  }
+
+  const btn = document.getElementById('notifyBtn');
+  if(btn){
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+  }
+
+  const zone = zoneNumber(d.zone);
+  let calledOk = false;
+  let smsOk    = false;
+  let problem  = null;
+
+  // ---- The call and the text --------------------------------
+  try {
+    // Proof of who is pressing the button. Netlify checks this
+    // signature against Google's own keys before it will spend a
+    // cent, so a stranger who finds the address can do nothing.
+    const token = await auth.currentUser.getIdToken();
+
+    const res = await fetch('/.netlify/functions/notify-technician', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type':  'application/json'
+      },
+      body: JSON.stringify({ technicianId: d.techId, zone })
+    });
+
+    const out = await res.json();
+
+    if(!res.ok){
+      problem = out.error || 'the server refused the request';
+    } else {
+      calledOk = !!(out.call && out.call.ok);
+      smsOk    = !!(out.sms  && out.sms.ok);
+      if(!calledOk && out.call) problem = out.call.reason;
+      if(!smsOk    && out.sms && !problem) problem = out.sms.reason;
+    }
+  } catch (err) {
+    problem = err.message;
+  }
+
+  // ---- The email --------------------------------------------
+  // Skipped quietly if the settings above are still blank, and a
+  // failure here never stops the report of the call and the text.
+  let emailOk = false;
+
+  if(EMAILJS.serviceId && EMAILJS.templateId && EMAILJS.publicKey && window.emailjs){
+    try {
+      await emailjs.send(EMAILJS.serviceId, EMAILJS.templateId, {
+        to_email:        d.techEmail || '',
+        technician_name: d.techName  || '',
+        zone:            d.zone      || 'Unknown zone',
+        level:           APP.liveData?.tank?.level != null
+                           ? Math.round(APP.liveData.tank.level) + '%'
+                           : 'not stated',
+        dispatched_by:   d.assignedBy || 'Control room',
+        time:            nowTime()
+      }, EMAILJS.publicKey);
+      emailOk = true;
+    } catch (err) {
+      console.error('Email not sent', err);
+    }
+  }
+
+  // ---- Tell the operator what actually happened -------------
+  // Named individually rather than as a vague "sent", because an
+  // operator needs to know whether to pick up the phone themselves.
+  const done = [];
+  if(calledOk) done.push('called');
+  if(smsOk)    done.push('texted');
+  if(emailOk)  done.push('emailed');
+
+  const who = (d.techName || 'The technician').split(' ')[0];
+
+  if(done.length){
+    showToast(`${who} has been ${done.join(', ')}`,
+      problem ? `Not everything went through: ${problem}` : 'The alarm has stopped ringing.');
+    logEvent('dispatch', `${d.techName} ${done.join(', ')} for ${d.zone}`, nowTime(), d.zone);
+  } else {
+    showToast('Nothing was sent', problem || 'Please phone them yourself.');
+  }
+
+  if(btn){
+    btn.disabled = false;
+    btn.textContent = done.length ? '📣 Send again' : '📣 Try again';
+  }
 }
 
 function setEl(id,val){
