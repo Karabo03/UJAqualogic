@@ -1529,29 +1529,11 @@ function buildFaultReport(){
       : 'No zone data available'
   };
 }
-// Who a fault report goes to. Built from the live database, not
-// from a list typed into this file.
-//
-//   The control room address, always. It is the one inbox that
-//   is watched whether or not anybody is signed in.
-//   Every technician currently on the rotation.
-//   Every approved administrator, when the signed in account is
-//   allowed to read the account list. A technician is not, so
-//   for them the control room address covers it.
+// Who a fault report goes to. Every technician and approved admin
+// already reads team@ujaqualogic.co.za, so the report is sent
+// there once rather than to each person's own address.
 function faultRecipients(){
-  const list = [CONTROL_ROOM_EMAIL];
-
-  APP.team
-    .filter(t => t.active !== false && t.email)
-    .forEach(t => list.push(t.email));
-
-  APP.accessRequests
-    .filter(u => u.status === STATUS.APPROVED && u.role === 'admin' && u.email)
-    .forEach(u => list.push(u.email));
-
-  // One address might appear twice, for example a technician who
-  // is also on the account list. Send to each person once.
-  return Array.from(new Set(list.map(e => String(e).trim().toLowerCase()).filter(Boolean)));
+  return [CONTROL_ROOM_EMAIL];
 }
 function openFaultModal(){
   const r = buildFaultReport();
@@ -1580,16 +1562,15 @@ Aqua Logic Monitoring System`;
   // alarm to go and look up their number.
   const row = $('faultDispatchRow');
   const d = APP.dispatch;
+  // This row is informational only: who the rotation assigned.
+  // Calling and texting the technician happens from the dispatch
+  // card, not from here, so no action buttons are shown.
   if(row){
     row.innerHTML = d
       ? `<div class="fault-dispatch">
            <div>
              <div class="fd-label">Assigned to</div>
              <div class="fd-name">${d.techName} · ${d.techPhone || 'no number'}</div>
-           </div>
-           <div class="fd-actions">
-             <a class="call-btn" href="tel:${d.techPhone || ''}">📞 Call</a>
-             <a class="sms-btn" href="${smsLink(d.techPhone, jobSmsText(d))}">💬 SMS</a>
            </div>
          </div>`
       : `<div class="fault-dispatch none">Nobody assigned yet. The rotation picks someone as soon as the leak is confirmed.</div>`;
@@ -1602,10 +1583,10 @@ function closeFault(){
   $('faultModal').classList.remove('show');
   $('faultModal').setAttribute('aria-hidden','true');
 }
-// The fault report goes to everyone who has dashboard access,
-// not to a single inbox. A leak is something the whole team
-// should know about, while the job itself still belongs to one
-// named technician who gets the call and the SMS.
+// The fault report goes to the team inbox, team@ujaqualogic.co.za,
+// which every technician and approved admin already reads. The
+// job itself still belongs to one named technician, shown in the
+// dispatch row above.
 //
 // Sent through EmailJS so it works on any device. The old
 // mailto: version did nothing on phones with no mail app.
@@ -1619,47 +1600,33 @@ function sendFaultEmail(){
   btn.disabled = true;
   btn.textContent = 'Sending...';
 
-  // One send per recipient. EmailJS templates go to one address
-  // at a time, so the list is walked rather than sent in bulk.
-  const sends = faultRecipients().map(address =>
-    emailjs.send(MAIL.service, MAIL.fault, {
-      email:          address,
-      subject:        `[URGENT] Water Leak Detected. ${r.zones}. Aqua Logic`,
-      reply_to:       r.operator_email,
-      zones:          r.zones,
-      datetime:       r.datetime,
-      operator:       r.operator,
-      contact:        r.contact,
-      operator_email: r.operator_email,
-      assigned:       r.assigned,
-      flow:           r.flow,
-      details:        r.details
-    })
-  );
-
-  Promise.allSettled(sends).then(results => {
-    const sent   = results.filter(x => x.status === 'fulfilled').length;
-    const failed = results.length - sent;
+  emailjs.send(MAIL.service, MAIL.fault, {
+    email:          CONTROL_ROOM_EMAIL,
+    subject:        `[URGENT] Water Leak Detected. ${r.zones}. Aqua Logic`,
+    reply_to:       r.operator_email,
+    zones:          r.zones,
+    datetime:       r.datetime,
+    operator:       r.operator,
+    contact:        r.contact,
+    operator_email: r.operator_email,
+    assigned:       r.assigned,
+    flow:           r.flow,
+    details:        r.details
+  }).then(() => {
     btn.disabled = false;
     btn.textContent = 'Send Report';
-
-    if(!sent){
-      console.error(results);
-      showToast('❌ Report failed', 'Nothing went out. Check your connection and try again.');
-      return;
-    }
     APP.lastEmailSentAt = Date.now();
     logEvent('email',
-      `Fault report for ${r.zones} sent to ${sent} of ${results.length} team members`,
+      `Fault report for ${r.zones} sent to the team inbox`,
       nowTime(),
       'System');
     closeFault();
-    showToast(
-      '📧 Team notified',
-      failed
-        ? `${sent} of ${results.length} emails went out. ${failed} failed.`
-        : `All ${sent} team members have the report.`
-    );
+    showToast('📧 Team notified', `The report reached ${CONTROL_ROOM_EMAIL}.`);
+  }).catch(err => {
+    console.error(err);
+    btn.disabled = false;
+    btn.textContent = 'Send Report';
+    showToast('❌ Report failed', 'Nothing went out. Check your connection and try again.');
   });
 }
 function acknowledge(zone){
